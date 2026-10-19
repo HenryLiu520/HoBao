@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  【只是选择器里的静态预览】版式必须和 widget_hobao.xml 一致，改一处要改两处。
+
+  这是 Android 12 之后的组件语言：**内外都圆角**
+    · 外壳一个大圆角（系统给的值）
+    · 内部每一格自己是圆角小卡片（系统给的内圆角）
+    · 格子之间用**空隙**分开，不画分隔线
+  两层颜色差一档，圆角才看得出来。
+
+  ⚠️ 硬规矩
+  1. 只能用 RemoteViews 白名单里的 View（`<View>` 会让整块加载失败）
+  2. 根布局 id 用 @android:id/background —— Android 12+ 靠它做"组件→app"的平滑过渡动画
+  3. 颜色全部走资源（@color/widget_*），深色模式能自动换一套
+  4. 内边距必须是 8dp：系统规定内圆角是给"距边缘 8dp 的元素"用的，否则内外曲率不同心
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="@dimen/widget_padding">
+
+    <!-- ══ 上半：今日开销（跨两格）══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_cell_bg">
+
+        <!-- emoji 用文字画，不需要任何素材；系统自带彩色 emoji 字体会接管 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_today_emoji"
+            android:textSize="17sp"
+            android:maxLines="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_today_label"
+            android:textColor="@color/widget_label"
+            android:textSize="10sp"
+            android:letterSpacing="0.06"
+            android:maxLines="1" />
+
+        <!--
+          金额开 autoSize：2 格宽只有约 100dp，
+          "CNY 117.00" 用 20sp 放不下会被截成 "CNY 117..."。
+          记账 app 截断金额是致命的，让字号自己缩。
+        -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:layout_marginTop="2dp"
+            android:text="CNY 286.40"
+            android:textColor="@color/widget_amount"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="1"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="20sp"
+            android:autoSizeStepGranularity="1sp" />
+
+    </LinearLayout>
+
+    <!-- ══ 下半：左右两格（用 marginStart 留缝，不用分隔线）══ -->
+    <!--
+      动作行 = 上半高度的 0.55（约六四开）。
+      之前是固定 44dp，2×2 时上面那块占了七成，空得慌；
+      改成按比例后，组件拉大拉小都保持同一个观感。
+      但不能 1:1 —— 两格会被拉成"又高又窄的药丸"，不像按钮。
+    -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.55"
+        android:layout_marginTop="@dimen/widget_gap"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@drawable/widget_cell_bg">
+
+            <ImageView
+                android:layout_width="@dimen/widget_action_icon"
+                android:layout_height="@dimen/widget_action_icon"
+                android:src="@drawable/ic_open_in_new"
+                android:tint="@color/widget_action"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="@string/widget_open_label"
+                android:textColor="@color/widget_action"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/widget_gap"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@drawable/widget_cell_bg">
+
+            <ImageView
+                android:layout_width="@dimen/widget_action_icon"
+                android:layout_height="@dimen/widget_action_icon"
+                android:src="@drawable/ic_add"
+                android:tint="@color/widget_action"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="@string/widget_new_label"
+                android:textColor="@color/widget_action"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:maxLines="1" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

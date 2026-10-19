@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 组件配色（深色）：外壳更深、内格略亮，保持同样的层次关系 -->
+    <color name="widget_bg">#17161B</color>
+    <color name="widget_cell">#2A2930</color>
+    <color name="widget_label">#C9C5D0</color>
+    <color name="widget_amount">#E6E1E9</color>
+    <color name="widget_action">#C3C9F0</color>
+</resources>

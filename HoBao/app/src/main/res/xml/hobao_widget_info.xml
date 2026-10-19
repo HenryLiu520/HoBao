@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  四宫格组件（2×2）。
+
+  【关于尺寸】默认 2×2；允许拉伸，布局用 weight 分配空间，拉大就是格子变大。
+  Android 12 起用 targetCellWidth/targetCellHeight（按格子数）最准；
+  minWidth/minHeight 是给 Android 11 及以下用的，换算公式 70 * 格数 - 30。
+
+  【关于 updatePeriodMillis = 0】
+  0 = 不要系统定时更新。系统最快也只给 30 分钟、还不保证准时，
+  而记账数据只在你记账时变 —— 所以「存完主动推」才是对的，也不耗电。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:maxResizeWidth="250dp"
+    android:maxResizeHeight="250dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_hobao"
+    android:previewLayout="@layout/widget_preview"
+    android:description="@string/widget_desc"
+    android:widgetCategory="home_screen|keyguard" />

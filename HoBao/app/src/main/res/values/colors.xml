@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#E8760B</color>
+
+    <!--
+      组件配色（浅色）。
+      ⚠️ 组件会被放在**任何壁纸**上，所以不能用"跟随壁纸的模糊色"，
+         必须实色卡片 + 高对比文字。
+
+      两层结构（这是 Android 12 之后的组件语言）：
+        widget_bg   = 外壳容器（整块组件的底）
+        widget_cell = 内部每一格的小卡片，比外壳亮一档 ——
+                      圆角只有在「两层颜色有差」时才看得出来
+    -->
+    <color name="widget_bg">#F3F0FA</color>
+    <color name="widget_cell">#FFFFFF</color>
+    <color name="widget_label">#63606A</color>
+    <color name="widget_amount">#1B1B21</color>
+    <color name="widget_action">#46528C</color>
 </resources>

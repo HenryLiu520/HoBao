@@ -26,6 +26,7 @@ import com.liuhaoran.hobao.model.toYearMonth
 import com.liuhaoran.hobao.util.cnyMinorToMinor
 import com.liuhaoran.hobao.util.formatMoney
 import com.liuhaoran.hobao.util.toCnyMinor
+import com.liuhaoran.hobao.widget.WidgetUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,6 +71,8 @@ data class MonthGroup(
 class ExpenseViewModel(
     private val repo: ExpenseRepository,
     private val settings: SettingsStore,
+    /** Application Context —— 只用来通知桌面组件刷新，不持有任何界面 */
+    private val app: Application,
 ) : ViewModel() {
 
     // ── 界面状态：筛选条件 ──
@@ -224,6 +227,12 @@ class ExpenseViewModel(
         reason: String,
         categoryId: Long,
         createdAt: Long = System.currentTimeMillis(),
+        /**
+         * 存完之后要做什么。快速记账的悬浮窗靠它来「存完再关」——
+         * 如果先 finish() 再存，Activity 一销毁 ViewModel 就被清掉，
+         * viewModelScope 里的协程会被取消，这笔账就丢了。
+         */
+        onSaved: (() -> Unit)? = null,
     ) {
         val cur = entryCurrency ?: return
         if (cur.ratePerCny <= 0.0) return
@@ -243,11 +252,16 @@ class ExpenseViewModel(
                     updatedAt = now,
                 )
             )
+            WidgetUpdater.refresh(app)   // 组件是快照，存完必须主动推
+            onSaved?.invoke()
         }
     }
 
     fun deleteExpense(expense: ExpenseEntity) {
-        viewModelScope.launch { repo.deleteExpense(expense) }
+        viewModelScope.launch {
+            repo.deleteExpense(expense)
+            WidgetUpdater.refresh(app)
+        }
     }
 
     // ── 备份 ──
@@ -267,7 +281,7 @@ class ExpenseViewModel(
         withContext(Dispatchers.IO) {
             val file = BackupCodec.decode(text)
             repo.importBackup(file, mode)
-        }
+        }.also { WidgetUpdater.refresh(app) }
 
     // ── 派生数据 ──
 
@@ -395,6 +409,7 @@ class ExpenseViewModel(
                 ExpenseViewModel(
                     ExpenseRepository(HoBaoDatabase.get(app)),
                     SettingsStore(app),
+                    app,
                 )
             }
         }

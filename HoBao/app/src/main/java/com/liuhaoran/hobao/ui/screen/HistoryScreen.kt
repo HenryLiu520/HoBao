@@ -99,7 +99,7 @@ fun HistoryScreen(
                 shape = MaterialTheme.shapes.large,
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_filter),
+                    painter = painterResource(R.drawable.ic_filter_alt),
                     contentDescription = "筛选",
                 )
             }

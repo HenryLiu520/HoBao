@@ -22,6 +22,37 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          快速记账的悬浮小窗。
+          · theme 用透明主题 → 看起来是盖在桌面上的一张卡片，不像"跳进 app"
+          · excludeFromRecents → 不出现在最近任务里（它只是个弹窗，不是一个页面）
+          · windowSoftInputMode=adjustResize → 输原因时卡片跟着键盘让位
+        -->
+        <activity
+            android:name=".ui.quickadd.QuickAddActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.HoBao.Popup"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!--
+          桌面组件。
+          exported="true" 是必须的：桌面是**别的 app**，它要能给你发广播。
+          meta-data 指向那个「说明书」XML —— 没有它，系统就不知道这是个组件。
+        -->
+        <receiver
+            android:name=".widget.HoBaoWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/hobao_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

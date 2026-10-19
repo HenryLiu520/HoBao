@@ -42,8 +42,10 @@ android {
         applicationId = "com.liuhaoran.hobao"
         minSdk = 26          // 最低支持 Android 8.0
         targetSdk = 36       // 已适配到 Android 16(你手机的版本)
-        versionCode = 1
-        versionName = "0.3"
+        // ⚠️ 每次发版都要 +1：签名相同 + versionCode 更大 = 用户能直接覆盖更新，
+        //    否则系统会拒绝安装，只能卸载重装（数据全丢）
+        versionCode = 2
+        versionName = "0.4"
     }
 
     buildTypes {

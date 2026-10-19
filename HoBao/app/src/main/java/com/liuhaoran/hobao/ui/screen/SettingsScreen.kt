@@ -24,11 +24,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.liuhaoran.hobao.util.flagEmoji
 import com.liuhaoran.hobao.viewmodel.ExpenseViewModel
+import com.liuhaoran.hobao.widget.HoBaoWidgetProvider
 
 /**
  * 界面三「设置」。
@@ -44,6 +48,10 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     var showReportDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val widgetManager = remember { AppWidgetManager.getInstance(context) }
+    // 不是所有桌面都支持"应用请求把自己钉到桌面"（Pixel/三星都支持）
+    val canPinWidget = remember { widgetManager.isRequestPinAppWidgetSupported }
 
     Column(
         modifier = modifier
@@ -74,6 +82,22 @@ fun SettingsScreen(
                 SettingRow("分类管理", "新建 / 改名 / 归档（还没做）", onClick = null)
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingRow("数据备份", "导出 / 导入 JSON 备份", onClick = onOpenBackup)
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingRow(
+                    title = "桌面组件",
+                    subtitle = if (canPinWidget) "四宫格：今日开销 + 打开 + 新建"
+                    else "这个桌面不支持一键添加，请长按桌面空白处手动添加",
+                    onClick = if (canPinWidget) {
+                        {
+                            widgetManager.requestPinAppWidget(
+                                ComponentName(context, HoBaoWidgetProvider::class.java),
+                                null,
+                                null,
+                            )
+                        }
+                    } else null,
+                )
+
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingRow("关于荷包", "版本 0.3", onClick = null)
             }

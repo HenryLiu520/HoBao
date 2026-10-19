@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Android 12+ 的组件圆角必须**用系统给的值**。
+      理由：桌面会把组件裁成它自己的圆角形状。
+      你自己写死 24dp、而桌面裁 28dp 的话，四个角会露出一圈奇怪的白边
+      （或者你的圆角被裁掉一半）—— 这就是"看着有点脏"的来源。
+    -->
+    <dimen name="widget_radius">@android:dimen/system_app_widget_background_radius</dimen>
+
+    <!--
+      内部小卡片同理由系统给。
+      官方原话："System-provided radius for inner views on app widgets
+      that are positioned 8dp within the widget background view.
+      The resolved value of this resource may change at runtime."
+      —— 所以我们的内边距也必须是 8dp，否则内外两个圆角曲率不同心，看着别扭。
+    -->
+    <dimen name="widget_inner_radius">@android:dimen/system_app_widget_inner_radius</dimen>
+</resources>

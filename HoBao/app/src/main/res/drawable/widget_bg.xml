@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  组件的底：实色 + 圆角。
+  圆角读 @dimen/widget_radius —— Android 12+ 时它就是系统给的值，
+  和桌面上其它组件对齐；老系统退回 24dp。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_bg" />
+    <corners android:radius="@dimen/widget_radius" />
+</shape>

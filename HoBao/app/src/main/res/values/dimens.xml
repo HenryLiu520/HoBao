@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      组件圆角（Android 11 及以下的兜底值）。
+      Android 12 起改用系统给的值，见 values-v31/dimens.xml。
+    -->
+    <dimen name="widget_radius">24dp</dimen>
+
+    <!-- 内部小卡片的圆角。系统规定"距边缘 8dp 的内部元素"用这个值，保证同心 -->
+    <dimen name="widget_inner_radius">16dp</dimen>
+
+    <!-- 外壳内边距 8dp + 格子间距 6dp：和系统给的 8dp 内缩刻度对齐 -->
+    <dimen name="widget_padding">8dp</dimen>
+    <dimen name="widget_gap">6dp</dimen>
+    <dimen name="widget_action_icon">14dp</dimen>
+</resources>

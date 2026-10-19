@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">荷包</string>
+
+    <!-- 桌面组件（四宫格） -->
+    <string name="widget_name">荷包 · 今日开销</string>
+    <string name="widget_desc">看今天花了多少，一键打开或新建一笔记账。</string>
+    <string name="widget_today_label">今日开销</string>
+    <!-- 组件顶部的 emoji。换的话直接改这里，不用动布局 -->
+    <string name="widget_today_emoji">💸</string>
+    <string name="widget_open_label">打开</string>
+    <!-- 加号由 @drawable/ic_add（Material Symbols）提供，文字里不要再写 ＋，否则会变成「+ + 新建」 -->
+    <string name="widget_new_label">新建</string>
 </resources>

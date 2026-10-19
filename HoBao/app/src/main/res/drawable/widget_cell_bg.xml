@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  内部小卡片的底：圆角 + 点击水波纹。
+
+  ⚠️ 用了 ripple 就不能再在外层加 ?android:attr/selectableItemBackground ——
+     一个 View 只能有一个 background，两者会互相覆盖。
+     把"圆角形状"和"水波纹"写进同一个 drawable 才是正解。
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#2E46528C">
+
+    <!-- mask 决定水波纹被裁成什么形状 -->
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="@dimen/widget_inner_radius" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_cell" />
+            <corners android:radius="@dimen/widget_inner_radius" />
+        </shape>
+    </item>
+</ripple>

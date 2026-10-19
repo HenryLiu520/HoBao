@@ -2,4 +2,21 @@
 <resources>
     <!-- 界面颜色全部由 Compose 里的 HoBaoTheme 控制，这里只是一个空壳主题 -->
     <style name="Theme.HoBao" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+      快速记账用的「悬浮小窗」主题。
+      关键三行：
+        windowIsTranslucent  窗口半透明，能看到底下的桌面
+        windowBackground     背景透明（不然会盖一块白板）
+        backgroundDimEnabled 关掉**系统**的变暗，改由 Compose 自己画一层遮罩
+                            （系统的 dim 是整屏均匀压暗，没法只压住卡片外面）
+    -->
+    <style name="Theme.HoBao.Popup" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>
