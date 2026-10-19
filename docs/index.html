@@ -26,21 +26,29 @@
   .brand span{font-size:12px;color:#7d7885}
   .phone{
     background:var(--bg);border-radius:28px;box-shadow:0 12px 36px rgba(60,55,80,.16);
-    overflow:hidden;display:flex;flex-direction:column;min-height:660px;position:relative;
+    overflow:hidden;display:flex;flex-direction:column;position:relative;
+    /* 固定高度：两个页签内容长短不同，但外框必须一模一样大。
+       内容在里面滚，不外溢。 */
+    height:min(720px, calc(100dvh - 130px));min-height:520px;
   }
 
   /* ── 标题栏 ── */
   .appbar{padding:18px 20px 6px;font-size:22px;font-weight:500;letter-spacing:.3px}
 
   /* ── 页面 ── */
-  .screen{flex:1;padding:0 16px 88px;overflow-y:auto}
+  .screen{flex:1;min-height:0;padding:0 16px 88px;overflow-y:auto;scrollbar-width:none}
+  .screen::-webkit-scrollbar{display:none}
   .screen[hidden]{display:none}
 
-  /* 本月卡 */
-  .card{background:var(--primary-container);border-radius:26px;padding:22px;margin-top:10px}
-  .card .label{font-size:12px;color:#33323d;letter-spacing:.4px}
-  .card .big{font-size:36px;font-weight:700;letter-spacing:-.5px;margin:2px 0 2px}
-  .card .sub{font-size:12px;color:#3b3a46}
+  /* 合计卡：记一笔的「本月支出」和回顾的「合计支出」共用这一套尺寸 */
+  .totalcard{
+    background:var(--primary-container);border-radius:26px;padding:22px;
+    margin-top:12px;display:flex;justify-content:space-between;align-items:flex-end;
+  }
+  .totalcard .label{font-size:12px;color:#33323d;letter-spacing:.4px}
+  .totalcard .big{font-size:36px;font-weight:700;letter-spacing:-.5px;margin:2px 0 0;line-height:1.15}
+  .totalcard .sub{font-size:12px;color:#3b3a46}
+  .totalcard .count{font-size:14px;color:#3b3a46;flex:0 0 auto;padding-bottom:4px}
 
   /* 输入框：标签骑在边框上 */
   .field{position:relative;padding-top:8px}
@@ -112,10 +120,6 @@
   .filtersum{font-size:12px;color:var(--on-surface-variant);margin:10px 2px 0;display:flex;justify-content:space-between;align-items:center}
   .filtersum button{background:none;border:0;color:var(--primary);font-size:12px;font-family:inherit;cursor:pointer}
 
-  .sumcard{background:var(--primary-container);border-radius:26px;padding:18px 20px;margin-top:12px;display:flex;justify-content:space-between;align-items:flex-end}
-  .sumcard .l{font-size:12px;color:#33323d}
-  .sumcard .v{font-size:32px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
-  .sumcard .c{font-size:14px;color:#3b3a46}
 
   /* 底部页签 */
   .tabs{
@@ -175,10 +179,12 @@
 
     <!-- ═══ 记一笔 ═══ -->
     <div class="screen" id="screen-add">
-      <div class="card">
-        <div class="label">本月支出</div>
-        <div class="big" id="monthTotal">CNY 0.00</div>
-        <div class="sub" id="monthSub">共 0 笔 · 按今日汇率折算</div>
+      <div class="totalcard">
+        <div>
+          <div class="label">本月支出</div>
+          <div class="big" id="monthTotal">CNY 0.00</div>
+          <div class="sub" id="monthSub">共 0 笔 · 按今日汇率折算</div>
+        </div>
       </div>
 
       <div class="gap14"></div>
@@ -238,12 +244,12 @@
         <button id="clearFilter">清除</button>
       </div>
 
-      <div class="sumcard">
+      <div class="totalcard">
         <div>
-          <div class="l">合计支出</div>
-          <div class="v" id="histTotal">CNY 0.00</div>
+          <div class="label">合计支出</div>
+          <div class="big" id="histTotal">CNY 0.00</div>
         </div>
-        <div class="c" id="histCount">0 笔</div>
+        <div class="count" id="histCount">0 笔</div>
       </div>
 
       <div class="sec-title" id="histTitle" hidden>全部记录</div>
