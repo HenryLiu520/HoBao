@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>荷包 HoBao · 网页试玩版</title>
+<style>
+  :root{
+    --bg:#F6F4FA; --surface-low:#EFECF7; --primary-container:#DDDAF6;
+    --primary:#46528C; --on-primary:#FFFFFF;
+    --on-surface:#1B1B21; --on-surface-variant:#63606A; --outline:#7A757F;
+    --error:#B3261E; --error-container:#F9DEDC; --chip-bg:#DEE1F9;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:#E7E3EE; color:var(--on-surface);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:20px 12px 32px;
+  }
+
+  /* ── 页面外壳 ── */
+  .wrap{width:100%;max-width:400px}
+  .brand{display:flex;align-items:baseline;gap:8px;margin:0 4px 10px;color:#4a4655}
+  .brand b{font-size:17px;letter-spacing:.5px}
+  .brand span{font-size:12px;color:#7d7885}
+  .phone{
+    background:var(--bg);border-radius:28px;box-shadow:0 12px 36px rgba(60,55,80,.16);
+    overflow:hidden;display:flex;flex-direction:column;min-height:660px;position:relative;
+  }
+
+  /* ── 标题栏 ── */
+  .appbar{padding:18px 20px 6px;font-size:22px;font-weight:500;letter-spacing:.3px}
+
+  /* ── 页面 ── */
+  .screen{flex:1;padding:0 16px 88px;overflow-y:auto}
+  .screen[hidden]{display:none}
+
+  /* 本月卡 */
+  .card{background:var(--primary-container);border-radius:26px;padding:22px;margin-top:10px}
+  .card .label{font-size:12px;color:#33323d;letter-spacing:.4px}
+  .card .big{font-size:36px;font-weight:700;letter-spacing:-.5px;margin:2px 0 2px}
+  .card .sub{font-size:12px;color:#3b3a46}
+
+  /* 输入框：标签骑在边框上 */
+  .field{position:relative;padding-top:8px}
+  .field > .lab{
+    position:absolute;top:0;left:12px;background:var(--bg);padding:0 4px;
+    font-size:11.5px;color:var(--on-surface-variant);line-height:16px;pointer-events:none;
+  }
+  .field input,.field .ro{
+    width:100%;height:56px;border:1px solid var(--outline);border-radius:10px;background:transparent;
+    padding:0 16px;font-size:16px;color:var(--on-surface);font-family:inherit;outline:none;
+  }
+  .field input::placeholder{color:#9a95a3}
+  .field input:focus{border:2px solid var(--primary);padding:0 15px}
+  .field .ro{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+  .field .ro .chev{color:var(--on-surface-variant);font-size:12px}
+  .field.err input{border:2px solid var(--error);padding:0 15px}
+  .field .msg{height:16px;font-size:11px;color:var(--error);padding:2px 12px 0;line-height:14px}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .gap10{height:10px}
+  .gap14{height:14px}
+
+  /* 分类 chips */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{
+    flex:0 0 auto;border:1px solid var(--outline);border-radius:999px;background:transparent;
+    padding:9px 18px;font-size:14px;color:var(--on-surface);cursor:pointer;font-family:inherit;
+  }
+  .chip[aria-pressed="true"]{background:var(--chip-bg);border-color:transparent}
+
+  .btn{
+    width:100%;height:56px;border:0;border-radius:28px;background:var(--primary);color:var(--on-primary);
+    font-size:16px;font-family:inherit;cursor:pointer;margin-top:14px;
+  }
+  .btn:disabled{background:#DAD6E2;color:#8E8A96;cursor:default}
+
+  /* 列表 */
+  .sec-title{font-size:15px;font-weight:600;margin:22px 0 8px}
+  .item{
+    background:var(--surface-low);border-radius:14px;padding:12px 14px;margin-bottom:8px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .item .mid{flex:1;min-width:0}
+  .item .reason{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .meta{font-size:12px;color:var(--on-surface-variant);margin-top:2px}
+  .item .amt{text-align:right;flex:0 0 auto}
+  .item .amt .main{font-size:15px;font-weight:700}
+  .item .amt .orig{font-size:11.5px;color:var(--on-surface-variant);margin-top:2px}
+  .empty{text-align:center;color:var(--on-surface-variant);font-size:13px;padding:40px 0}
+
+  /* 回顾页顶部 */
+  .searchrow{display:flex;gap:10px;margin-top:12px}
+  .searchrow input{
+    flex:1;height:52px;border:1px solid var(--outline);border-radius:26px;background:transparent;
+    padding:0 18px 0 42px;font-size:15px;font-family:inherit;outline:none;color:var(--on-surface);
+  }
+  .searchrow .box{position:relative;flex:1;display:flex}
+  .searchrow .box .mag{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#6b6674;font-size:15px}
+  .funnel{
+    width:52px;height:52px;border:0;border-radius:50%;background:var(--primary-container);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  .funnel.on{background:var(--primary)}
+  .funnel.on svg{fill:#fff}
+  .funnel svg{width:18px;height:18px;fill:#33323d}
+
+  .filtersum{font-size:12px;color:var(--on-surface-variant);margin:10px 2px 0;display:flex;justify-content:space-between;align-items:center}
+  .filtersum button{background:none;border:0;color:var(--primary);font-size:12px;font-family:inherit;cursor:pointer}
+
+  .sumcard{background:var(--primary-container);border-radius:26px;padding:18px 20px;margin-top:12px;display:flex;justify-content:space-between;align-items:flex-end}
+  .sumcard .l{font-size:12px;color:#33323d}
+  .sumcard .v{font-size:32px;font-weight:700;letter-spacing:-.5px;margin-top:2px}
+  .sumcard .c{font-size:14px;color:#3b3a46}
+
+  /* 底部页签 */
+  .tabs{
+    position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--bg);
+    display:flex;border-top:1px solid #E4E0EC;
+  }
+  .tab{
+    flex:1;background:none;border:0;font-family:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    font-size:11.5px;color:#4a4655;
+  }
+  .tab .pill{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .tab[aria-selected="true"] .pill{background:var(--primary-container)}
+  .tab[aria-selected="true"]{font-weight:600}
+
+  /* 弹层 */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.32);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);width:100%;max-width:400px;
+    background:var(--bg);border-radius:26px 26px 0 0;padding:10px 0 22px;z-index:21;
+    transition:transform .24s cubic-bezier(.2,.8,.2,1);max-height:78vh;overflow-y:auto;
+  }
+  .sheet.on{transform:translate(-50%,0)}
+  .sheet .grab{width:32px;height:4px;border-radius:2px;background:#C9C4D2;margin:2px auto 12px}
+  .sheet h3{margin:0 24px 4px;font-size:20px;font-weight:600}
+  .sheet .hint{margin:0 24px 8px;font-size:12px;color:var(--on-surface-variant)}
+  .pick{display:flex;align-items:center;gap:14px;padding:10px 24px;cursor:pointer}
+  .pick[aria-disabled="true"]{opacity:.45;cursor:default}
+  .pick .flag{font-size:20px}
+  .pick .mid{flex:1}
+  .pick .t{font-size:15px;font-weight:500}
+  .pick .s{font-size:11.5px;color:var(--on-surface-variant);margin-top:2px}
+  .pick .s.bad{color:var(--error)}
+  .pick .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--outline);flex:0 0 auto}
+  .pick[aria-checked="true"] .radio{border:6px solid var(--primary)}
+
+  /* 提示条 */
+  .toast{
+    position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);opacity:0;
+    background:#2C2B33;color:#fff;font-size:13px;padding:12px 18px;border-radius:10px;
+    transition:all .22s;z-index:30;pointer-events:none;max-width:340px;
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  .foot{max-width:400px;margin:14px 4px 0;font-size:11.5px;color:#7d7885;line-height:1.7}
+  .foot a{color:#5a5680}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand"><b>荷包 HoBao</b><span>网页试玩版</span></div>
+
+  <div class="phone">
+    <div class="appbar" id="title">记一笔</div>
+
+    <!-- ═══ 记一笔 ═══ -->
+    <div class="screen" id="screen-add">
+      <div class="card">
+        <div class="label">本月支出</div>
+        <div class="big" id="monthTotal">CNY 0.00</div>
+        <div class="sub" id="monthSub">共 0 笔 · 按今日汇率折算</div>
+      </div>
+
+      <div class="gap14"></div>
+
+      <div class="row2">
+        <div class="field" id="f-amount">
+          <div class="lab">金额</div>
+          <input id="amount" inputmode="decimal" autocomplete="off">
+          <div class="msg" id="amountMsg"></div>
+        </div>
+        <div class="field">
+          <div class="lab">原因</div>
+          <input id="reason" autocomplete="off">
+          <div class="msg"></div>
+        </div>
+      </div>
+
+      <div class="gap10"></div>
+
+      <div class="row2">
+        <div class="field">
+          <div class="lab">货币</div>
+          <div class="ro" id="currencyBtn"><span id="currencyVal">CNY</span><span class="chev">▾</span></div>
+          <div class="msg"></div>
+        </div>
+        <div class="field">
+          <div class="lab">日期</div>
+          <label class="ro" for="date"><span id="dateVal">今天</span><span class="chev">📅</span></label>
+          <input type="date" id="date" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+          <div class="msg"></div>
+        </div>
+      </div>
+
+      <div class="gap14"></div>
+      <div class="chips" id="catChips"></div>
+
+      <button class="btn" id="saveBtn" disabled>记一笔</button>
+
+      <div class="sec-title" id="recentTitle" hidden>最近记的</div>
+      <div id="recentList"></div>
+    </div>
+
+    <!-- ═══ 回顾 ═══ -->
+    <div class="screen" id="screen-history" hidden>
+      <div class="searchrow">
+        <div class="box">
+          <span class="mag">⌕</span>
+          <input id="q" placeholder="搜索原因…" autocomplete="off">
+        </div>
+        <button class="funnel" id="funnel" aria-label="筛选">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16l-6.5 8.5v5.5l-3-2v-3.5z"/></svg>
+        </button>
+      </div>
+
+      <div class="filtersum" id="filterSum" hidden>
+        <span id="filterSumText"></span>
+        <button id="clearFilter">清除</button>
+      </div>
+
+      <div class="sumcard">
+        <div>
+          <div class="l">合计支出</div>
+          <div class="v" id="histTotal">CNY 0.00</div>
+        </div>
+        <div class="c" id="histCount">0 笔</div>
+      </div>
+
+      <div class="sec-title" id="histTitle" hidden>全部记录</div>
+      <div id="histList"></div>
+    </div>
+
+    <!-- 页签 -->
+    <div class="tabs">
+      <button class="tab" id="tabAdd" aria-selected="true"><span class="pill">＋</span>记一笔</button>
+      <button class="tab" id="tabHist" aria-selected="false"><span class="pill">☰</span>回顾</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    这是 <b>网页试玩版</b>：界面照搬真机，逻辑用 JavaScript 重写过，数据只存在你这个浏览器里。<br>
+    真正的安卓 app（Kotlin + Compose + Room）在
+    <a href="https://github.com/HenryLiu520/HoBao" target="_blank" rel="noopener">GitHub 仓库</a>
+    ｜
+    <a href="https://github.com/HenryLiu520/HoBao/releases/latest" target="_blank" rel="noopener">下载 APK</a>
+  </div>
+</div>
+
+<!-- 弹层 -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <h3 id="sheetTitle">选择</h3>
+  <p class="hint" id="sheetHint"></p>
+  <div id="sheetBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ══════════ 数据 ══════════ */
+const RATE = { CNY:1, HKD:1.09, JPY:20.8, USD:0.14, EUR:0, GBP:0 }; // 1 CNY = ? 该币种（0 = 未填）
+const MINOR = { CNY:2, HKD:2, JPY:0, USD:2, EUR:2, GBP:2 };
+const NAME  = { CNY:"人民币", HKD:"港币", JPY:"日元", USD:"美元", EUR:"欧元", GBP:"英镑" };
+const FLAG  = { CNY:"🇨🇳", HKD:"🇭🇰", JPY:"🇯🇵", USD:"🇺🇸", EUR:"🇪🇺", GBP:"🇬🇧" };
+const ORDER = ["CNY","HKD","JPY","USD","EUR","GBP"];
+const CATS = [
+  { n:"餐饮", c:"#E8760B" }, { n:"交通", c:"#00696E" }, { n:"购物", c:"#B3261E" },
+  { n:"住宿", c:"#6750A4" }, { n:"学习", c:"#2E6C3F" }, { n:"娱乐", c:"#8A5182" },
+  { n:"其他", c:"#6B6B6B" },
+];
+const KEY = "hobao-demo-v1";
+
+const state = {
+  expenses: [],
+  entryCurrency: "CNY",
+  entryCategory: "餐饮",
+  filterCategory: null,
+  query: "",
+};
+
+/* ══════════ 存储 ══════════ */
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { state.expenses = JSON.parse(raw) || []; return; }
+  } catch (e) { /* 存储坏了就当空的 */ }
+  // 第一次来：塞 3 条样例，不然一进来空荡荡看不出东西
+  const now = Date.now();
+  state.expenses = [
+    { id: 1, amountMinor: 4200, code: "CNY", rate: 1, reason: "午饭", cat: "餐饮", at: now - 3 * 3600e3 },
+    { id: 2, amountMinor: 800,  code: "CNY", rate: 1, reason: "地铁", cat: "交通", at: now - 26 * 3600e3 },
+    { id: 3, amountMinor: 3800, code: "HKD", rate: 1.09, reason: "咖啡豆", cat: "购物", at: now - 50 * 3600e3 },
+  ];
+  save();
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state.expenses)); } catch (e) {}
+}
+
+/* ══════════ 换算与格式化 ══════════ */
+function toCnyMinor(amountMinor, code, rate) {
+  return Math.round(amountMinor * 100 / (Math.pow(10, MINOR[code]) * rate));
+}
+function fmt(minor, code) {
+  const mu = MINOR[code], neg = minor < 0, abs = Math.abs(minor);
+  const unit = Math.pow(10, mu);
+  const whole = Math.floor(abs / unit).toLocaleString("en-US");
+  const frac = mu ? "." + String(abs % unit).padStart(mu, "0") : "";
+  return (neg ? "-" : "") + code + " " + whole + frac;
+}
+function parseAmount(s, mu) {
+  s = String(s).trim().replace(/,/g, "");
+  if (!s) return null;
+  if (mu === 0) {
+    if (!/^\d{0,9}(\.\d{1,2})?$/.test(s)) return null;
+    return Math.ceil(parseFloat(s));            // 日元：小数向上进位
+  }
+  if (!new RegExp("^\\d{0,9}(\\.\\d{1," + mu + "})?$").test(s)) return null;
+  const [w, f = ""] = s.split(".");
+  return parseInt(w || "0", 10) * Math.pow(10, mu) +
+         parseInt((f + "0".repeat(mu)).slice(0, mu) || "0", 10);
+}
+function dayLabel(ms) {
+  const d = new Date(ms), n = new Date();
+  const s = (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  return d.getFullYear() === n.getFullYear() ? s : d.getFullYear() + "年" + s;
+}
+function timeLabel(ms) {
+  const d = new Date(ms);
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日 " +
+         String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function catColor(name) {
+  const c = CATS.find(x => x.n === name);
+  return c ? c.c : "#6B6B6B";
+}
+
+/* ══════════ 记一笔 ══════════ */
+const $ = id => document.getElementById(id);
+
+function renderEntry() {
+  const now = new Date();
+  const cny = state.expenses.filter(e => {
+    const d = new Date(e.at);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  $("monthTotal").textContent = fmt(cny.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0), "CNY");
+  $("monthSub").textContent = "共 " + cny.length + " 笔 · 按今日汇率折算";
+
+  $("currencyVal").textContent = state.entryCurrency;
+
+  // 分类 chips
+  $("catChips").innerHTML = CATS.map(c =>
+    `<button class="chip" data-cat="${c.n}" aria-pressed="${c.n === state.entryCategory}">${c.n}</button>`
+  ).join("");
+  $("catChips").querySelectorAll(".chip").forEach(b => {
+    b.onclick = () => { state.entryCategory = b.dataset.cat; renderEntry(); };
+  });
+
+  // 金额校验
+  const mu = MINOR[state.entryCurrency];
+  const raw = $("amount").value;
+  const amount = parseAmount(raw, mu);
+  const bad = raw.trim() !== "" && amount === null;
+  $("f-amount").classList.toggle("err", bad);
+  $("amountMsg").textContent = bad ? "格式不对" : "";
+  $("saveBtn").disabled = !(amount !== null && amount > 0);
+
+  // 最近 3 笔
+  const recent = [...state.expenses].sort((a, b) => b.at - a.at).slice(0, 3);
+  $("recentTitle").hidden = recent.length === 0;
+  $("recentList").innerHTML = recent.map(rowHtml).join("");
+}
+
+function rowHtml(e) {
+  const cny = toCnyMinor(e.amountMinor, e.code, e.rate);
+  const same = e.code === "CNY";
+  return `<div class="item">
+    <div class="dot" style="background:${catColor(e.cat)}"></div>
+    <div class="mid">
+      <div class="reason">${esc(e.reason)}</div>
+      <div class="meta">${esc(e.cat)} · ${timeLabel(e.at)}</div>
+    </div>
+    <div class="amt">
+      <div class="main">${fmt(cny, "CNY")}</div>
+      ${same ? "" : `<div class="orig">${fmt(e.amountMinor, e.code)}</div>`}
+    </div>
+  </div>`;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+
+/* ══════════ 回顾 ══════════ */
+function visible() {
+  const q = state.query.trim().toLowerCase();
+  return state.expenses
+    .filter(e => !state.filterCategory || e.cat === state.filterCategory)
+    .filter(e => !q || e.reason.toLowerCase().includes(q))
+    .sort((a, b) => b.at - a.at);
+}
+
+function renderHistory() {
+  const list = visible();
+  $("histTotal").textContent = fmt(list.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0), "CNY");
+  $("histCount").textContent = list.length + " 笔";
+
+  const on = state.filterCategory !== null;
+  $("filterSum").hidden = !on;
+  if (on) $("filterSumText").textContent = "筛选：" + state.filterCategory;
+  $("funnel").classList.toggle("on", on);
+
+  const total = state.expenses.length;
+  $("histTitle").hidden = list.length === 0;
+  $("histTitle").textContent = on || state.query.trim() ? "筛选结果" : "全部记录";
+
+  $("histList").innerHTML = list.length
+    ? list.map(rowHtml).join("")
+    : `<div class="empty">${total === 0 ? "还没有记录" : "没有匹配的记录"}</div>`;
+}
+
+/* ══════════ 弹层 ══════════ */
+let sheetMode = null;
+
+function openCurrencySheet() {
+  sheetMode = "currency";
+  $("sheetTitle").textContent = "选择货币";
+  $("sheetHint").textContent = "汇率都在真机版的「设置 → 汇率」里填。没填汇率的币种记不了账。";
+  $("sheetBody").innerHTML = ORDER.map(code => {
+    const usable = code === "CNY" || RATE[code] > 0;
+    const sub = code === "CNY"
+      ? "账本基准"
+      : RATE[code] > 0 ? `1 CNY = ${RATE[code].toFixed(2)} ${code}` : "未设置汇率，不能记账";
+    return `<div class="pick" data-code="${code}" aria-checked="${code === state.entryCurrency}"
+                 aria-disabled="${!usable}">
+      <span class="flag">${FLAG[code]}</span>
+      <div class="mid">
+        <div class="t">${code}　${NAME[code]}</div>
+        <div class="s ${usable ? "" : "bad"}">${sub}</div>
+      </div>
+      <span class="radio"></span>
+    </div>`;
+  }).join("");
+  $("sheetBody").querySelectorAll(".pick").forEach(el => {
+    el.onclick = () => {
+      if (el.getAttribute("aria-disabled") === "true") return;
+      state.entryCurrency = el.dataset.code;
+      closeSheet(); renderEntry();
+    };
+  });
+  showSheet();
+}
+
+function openCategorySheet() {
+  sheetMode = "category";
+  $("sheetTitle").textContent = "按类别筛选";
+  $("sheetHint").textContent = "";
+  const all = `<div class="pick" data-cat="" aria-checked="${state.filterCategory === null}">
+      <div class="mid"><div class="t">全部类别</div></div><span class="radio"></span></div>`;
+  $("sheetBody").innerHTML = all + CATS.map(c => `
+    <div class="pick" data-cat="${c.n}" aria-checked="${state.filterCategory === c.n}">
+      <span class="dot" style="background:${c.c};width:10px;height:10px;border-radius:50%"></span>
+      <div class="mid"><div class="t">${c.n}</div></div><span class="radio"></span>
+    </div>`).join("");
+  $("sheetBody").querySelectorAll(".pick").forEach(el => {
+    el.onclick = () => {
+      state.filterCategory = el.dataset.cat || null;
+      closeSheet(); renderHistory();
+    };
+  });
+  showSheet();
+}
+
+function showSheet() {
+  $("scrim").classList.add("on");
+  $("sheet").classList.add("on");
+}
+function closeSheet() {
+  $("scrim").classList.remove("on");
+  $("sheet").classList.remove("on");
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
+}
+
+/* ══════════ 交互绑定 ══════════ */
+function switchTab(which) {
+  const add = which === "add";
+  $("screen-add").hidden = !add;
+  $("screen-history").hidden = add;
+  $("tabAdd").setAttribute("aria-selected", String(add));
+  $("tabHist").setAttribute("aria-selected", String(!add));
+  $("title").textContent = add ? "记一笔" : "回顾";
+  add ? renderEntry() : renderHistory();
+}
+
+$("tabAdd").onclick = () => switchTab("add");
+$("tabHist").onclick = () => switchTab("history");
+$("currencyBtn").onclick = openCurrencySheet;
+$("funnel").onclick = openCategorySheet;
+$("scrim").onclick = closeSheet;
+$("amount").oninput = renderEntry;
+
+// 日期：只允许今天及以前
+$("date").max = new Date().toISOString().slice(0, 10);
+$("date").onchange = () => {
+  const v = $("date").value;
+  if (!v) { $("dateVal").textContent = "今天"; return; }
+  const d = new Date(v + "T00:00:00");
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (d > today) { $("date").value = ""; $("dateVal").textContent = "今天"; return; }
+  $("dateVal").textContent = dayLabel(d.getTime());
+};
+
+// 保存
+$("saveBtn").onclick = () => {
+  const code = state.entryCurrency;
+  const mu = MINOR[code];
+  const amount = parseAmount($("amount").value, mu);
+  if (!amount || amount <= 0) return;
+
+  // 日期：选了哪天就用哪天，但保留当前时分秒（和真机一致）
+  let at = Date.now();
+  const v = $("date").value;
+  if (v) {
+    const picked = new Date(v + "T00:00:00");
+    const now = new Date();
+    picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    at = picked.getTime();
+  }
+
+  const reason = $("reason").value.trim() || state.entryCategory;  // 留空用分类名
+  state.expenses.push({
+    id: Date.now() + Math.random(),
+    amountMinor: amount,
+    code,
+    rate: RATE[code],
+    reason,
+    cat: state.entryCategory,
+    at,
+  });
+  save();
+
+  $("amount").value = "";
+  $("reason").value = "";
+  $("date").value = "";
+  $("dateVal").textContent = "今天";
+  renderEntry();
+
+  const whenSuffix = v ? " · " + dayLabel(at) : "";
+  toast("已记下 " + fmt(amount, code) + whenSuffix);
+};
+
+// 搜索
+$("q").oninput = () => { state.query = $("q").value; renderHistory(); };
+$("clearFilter").onclick = () => {
+  state.filterCategory = null; state.query = ""; $("q").value = "";
+  renderHistory();
+};
+
+/* ══════════ 启动 ══════════ */
+load();
+renderEntry();
+</script>
+</body>
+</html>
