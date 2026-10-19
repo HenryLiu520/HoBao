@@ -63,7 +63,8 @@
   .field input::placeholder{color:#9a95a3}
   .field input:focus{border:2px solid var(--primary);padding:0 15px}
   .field .ro{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
-  .field .ro .chev{color:var(--on-surface-variant);font-size:12px}
+  .field .ro .chev{color:var(--on-surface-variant);display:flex;align-items:center;flex:0 0 auto}
+  .field .ro .chev svg{width:18px;height:18px;fill:currentColor}
   .field.err input{border:2px solid var(--error);padding:0 15px}
   .field .msg{height:16px;font-size:11px;color:var(--error);padding:2px 12px 0;line-height:14px}
 
@@ -207,12 +208,16 @@
       <div class="row2">
         <div class="field">
           <div class="lab">货币</div>
-          <div class="ro" id="currencyBtn"><span id="currencyVal">CNY</span><span class="chev">▾</span></div>
+          <div class="ro" id="currencyBtn"><span id="currencyVal">CNY</span>
+            <span class="chev"><svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg></span>
+          </div>
           <div class="msg"></div>
         </div>
         <div class="field">
           <div class="lab">日期</div>
-          <label class="ro" for="date"><span id="dateVal">今天</span><span class="chev">📅</span></label>
+          <label class="ro" for="date"><span id="dateVal">今天</span>
+            <span class="chev"><svg viewBox="0 0 24 24"><path d="M6 2h2v2h8V2h2v2h2a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2V2zm13 7H5v10h14V9z"/></svg></span>
+          </label>
           <input type="date" id="date" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
           <div class="msg"></div>
         </div>
