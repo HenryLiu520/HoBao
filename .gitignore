@@ -1,0 +1,24 @@
+# ── 构建产物 ──
+build/
+.gradle/
+local.properties
+captures/
+.cxx/
+.externalNativeBuild/
+
+# ── IDE ──
+.idea/
+*.iml
+*.hprof
+
+# ── 🔑 签名密钥：永远不要提交 ──
+# 这个密钥一旦泄露，别人就能用你的名义给你的用户发"更新"
+keystore.properties
+*.jks
+*.keystore
+
+# ── macOS ──
+.DS_Store
+
+# ── 其它 ──
+*.log

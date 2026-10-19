@@ -1,0 +1,63 @@
+Copyright (c) 2026 LIU Haoran. All rights reserved.
+
+版权所有 © 2026 柳皓然（LIU Haoran）。保留所有权利。
+
+────────────────────────────────────────────────────────
+
+本软件「荷包 / HoBao」（以下简称"本软件"），包括其源代码、
+文档、界面设计、数据格式与备份格式，全部权利归版权持有人所有。
+
+未经版权持有人事先书面许可，任何个人或组织不得：
+
+  1. 复制、分发、公开传播本软件或其任何部分；
+  2. 修改、改编、翻译本软件，或基于本软件创作衍生作品；
+  3. 对本软件进行反向工程、反编译或反汇编；
+  4. 将本软件或其任何部分用于商业用途；
+  5. 移除、遮蔽或修改本软件中的任何版权声明、作者署名或链接；
+  6. 以本软件的名义发布任何应用、服务或产品。
+
+────────────────────────────────────────────────────────
+
+This software, "HoBao" (the "Software"), including its source code,
+documentation, user interface design, data format and backup format,
+is the exclusive property of the copyright holder.
+
+No person or entity may, without prior written permission from the
+copyright holder:
+
+  1. copy, distribute, or publicly transmit the Software or any part of it;
+  2. modify, adapt, or translate the Software, or create derivative works;
+  3. reverse engineer, decompile, or disassemble the Software;
+  4. use the Software or any part of it for commercial purposes;
+  5. remove, obscure, or alter any copyright notice, attribution, or link;
+  6. publish any application, service, or product under the Software's name.
+
+────────────────────────────────────────────────────────
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+本软件按"现状"提供，不附带任何明示或暗示的担保。
+
+────────────────────────────────────────────────────────
+
+⚠️ 特别说明 · 汇率与金额
+
+本软件中的汇率由用户**手动填写**，不是实时市场报价。所有折算金额、
+合计与统计结果**仅供参考**，不构成任何财务、税务、投资或会计建议。
+因汇率填写错误或折算误差造成的任何后果，版权持有人不承担责任。
+
+⚠️ Note on exchange rates
+
+Exchange rates in this Software are entered manually by the user and are
+not live market quotes. All converted amounts and totals are for reference
+only and do not constitute financial, tax, investment, or accounting advice.
+
+────────────────────────────────────────────────────────
+
+第三方组件
+
+本软件使用 Android Jetpack（Compose、Room、Navigation、Lifecycle）等
+Google 官方开源组件，它们分别遵循 Apache License 2.0 等各自的许可协议，
+不受本协议约束。相关许可随构建产物一并生效。
