@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      唯一的权限：联网拉汇率。
+      INTERNET 是「普通权限」—— 不弹窗、不需要用户同意，装上就有。
+      本 app 仍然是**不收集任何数据**的：只有一条 GET，没有任何上报。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

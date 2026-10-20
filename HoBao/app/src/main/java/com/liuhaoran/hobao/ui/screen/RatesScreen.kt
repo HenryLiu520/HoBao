@@ -30,20 +30,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
 import com.liuhaoran.hobao.util.flagEmoji
 import com.liuhaoran.hobao.viewmodel.ExpenseViewModel
+import com.liuhaoran.hobao.viewmodel.ForexUiState
 import java.util.Locale
 
 /**
  * 二级页面「汇率」。
  *
  * 结构：以人民币为基准，一行一个外币 —— 「1 人民币 = X 外币」
- * 最下面一个暂时不能点的「自动联网更新」（用禁用态诚实地表示"还没做"）。
+ * 最下面的「自动联网更新」：打开后每天后台更新一次（WorkManager），
+ * 也可以点「立即更新」手动触发。数据日期来自响应里的 date 字段。
  *
  * ⚠️ 这里改的是 currencies 表里的**当前汇率**。
  *    已有账单各自存着快照，一行都不会被动到。
@@ -82,43 +83,90 @@ fun RatesScreen(vm: ExpenseViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        // ── 自动联网更新：还没做，用禁用态诚实表示 ──
+        // ── 自动联网更新 ──
+        //
+        // 状态文案必须把「数据日期」和「是不是缓存」说清楚：
+        // 记账 app 里"用旧汇率算钱"比"报错"危险得多，所以 stale 一定要露出来。
+        val forexSyncing = vm.forexState is ForexUiState.Syncing
+        val forexError = vm.forexState is ForexUiState.Error
+        val forexSubtitle: String = when (val s = vm.forexState) {
+            is ForexUiState.Syncing -> "正在更新…"
+            is ForexUiState.Error -> "更新失败：${s.message}"
+            is ForexUiState.Done -> if (s.stale) "网络不可用，用的是 ${vm.forexDate} 的数据"
+            else "已更新 · 数据日期 ${vm.forexDate}"
+            ForexUiState.Idle -> when {
+                !vm.forexAutoEnabled -> "打开后每天自动更新一次"
+                vm.forexDate != null -> "数据日期 ${vm.forexDate}"
+                else -> "还没同步过"
+            }
+        }
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(0.45f)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "自动联网更新",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { vm.setForexAuto(!vm.forexAutoEnabled) }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = "即将推出",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "自动联网更新",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = forexSubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (forexError) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = vm.forexAutoEnabled,
+                        onCheckedChange = { vm.setForexAuto(it) },
                     )
                 }
-                Switch(checked = false, onCheckedChange = null, enabled = false)
+
+                if (vm.forexAutoEnabled) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "后台每天更新一次",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            onClick = { vm.syncForex() },
+                            enabled = !forexSyncing,
+                        ) {
+                            Text(if (forexSyncing) "更新中…" else "立即更新")
+                        }
+                    }
+                }
             }
         }
 
         Text(
-            text = "改汇率不会影响已经记好的账 —— 每条账都存着记账当时的汇率快照。",
+            text = "汇率数据由 fawazahmed0/currency-api 提供，仅供参考，不是成交价。\n" +
+                "改汇率不会影响已经记好的账 —— 每条账都存着记账当时的汇率快照。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),

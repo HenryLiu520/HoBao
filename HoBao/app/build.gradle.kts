@@ -44,8 +44,12 @@ android {
         targetSdk = 36       // 已适配到 Android 16(你手机的版本)
         // ⚠️ 每次发版都要 +1：签名相同 + versionCode 更大 = 用户能直接覆盖更新，
         //    否则系统会拒绝安装，只能卸载重装（数据全丢）
-        versionCode = 2
-        versionName = "0.4"
+        versionCode = 3
+        // 版本号规则（三段，见 README「版本号规则」）：
+        //   1.x.x  第一位 = 重大功能变化或算法改动  ← 自动联网更新属于这一类
+        //   x.1.x  第二位 = 小功能
+        //   x.x.1  第三位 = 修 bug
+        versionName = "1.0.0"
     }
 
     buildTypes {
@@ -89,6 +93,9 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.core)
 
+    // ── 后台任务（每日同步汇率）──
+    implementation(libs.androidx.work.runtime.ktx)
+
     // ── Room 数据库 ──
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -97,4 +104,35 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    // ── 单元测试（跑在 JVM 上，不需要模拟器）──
+    // org.json：Android 自带的 org.json 在 JVM 单测里是空壳（一调就抛 not mocked），
+    //          测试用 Maven 上同 API 的实现顶上
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }
+
+// 联网冒烟测试默认跳过；`./gradlew test -Dhobao.live=1` 才会真的去打 API
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("hobao.live", System.getProperty("hobao.live", "0"))
+}
+
+// ─────────────────────────────────────────────────────────────
+// 排除 KSP 的 plugin marker。
+//
+// `com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin` 是 Gradle 的
+// **plugin marker**：Maven Central 上只有 POM、没有 jar（实测目录里只有 pom 和签名）。
+//
+// 但 KSP 会把它挂到 debugUnitTestCompileClasspath 上，Gradle 于是去找它的 jar：
+//   · Maven Central / Plugin Portal → 404（本来就没有）
+//   · 阿里云镜像 → 报 **502**（对不存在的文件报网关错误，而不是 404）
+// 502 属于 IO 错误，会让 Gradle 把整个仓库标记为不可用，最后报出的却是
+// "Could not resolve junit:junit:4.13.2" —— 完全误导。
+//
+// 这个 marker 在**运行时没有任何用处**（它只声明"这个插件对应哪个实现"),
+// 真正需要的 symbol-processing-gradle-plugin 已经在 pluginManagement 里解析好了。
+// 所以整体排除，干净利落。
+// ─────────────────────────────────────────────────────────────
+// （曾经试过 exclude KSP 的 plugin marker，但会连插件自身的解析一起排掉，
+//   结果是 "Plugin com.google.devtools.ksp was not found"。真正的解法在 settings.gradle.kts：
+//   把官方仓库排到阿里云前面。）

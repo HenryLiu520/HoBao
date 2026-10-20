@@ -26,7 +26,12 @@ import com.liuhaoran.hobao.model.toYearMonth
 import com.liuhaoran.hobao.util.cnyMinorToMinor
 import com.liuhaoran.hobao.util.formatMoney
 import com.liuhaoran.hobao.util.toCnyMinor
+import com.liuhaoran.hobao.data.forex.ForexCache
+import com.liuhaoran.hobao.data.forex.ForexSyncOutcome
+import com.liuhaoran.hobao.data.forex.ForexSyncer
+import com.liuhaoran.hobao.viewmodel.ForexUiState
 import com.liuhaoran.hobao.widget.WidgetUpdater
+import com.liuhaoran.hobao.work.ForexScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -182,6 +187,53 @@ class ExpenseViewModel(
     fun updateRate(code: String, ratePerCny: Double) {
         if (ratePerCny <= 0.0) return
         viewModelScope.launch { repo.updateRate(code, ratePerCny) }
+    }
+
+    // ══════════════════ 汇率：自动联网更新 ══════════════════
+
+    private val forexCache = ForexCache(app)
+
+    /** 开关的当前值（持久化在 SharedPreferences 里） */
+    var forexAutoEnabled by mutableStateOf(ForexScheduler.isEnabled(app))
+        private set
+
+    var forexState by mutableStateOf<ForexUiState>(ForexUiState.Idle)
+        private set
+
+    /** 上一次成功同步的**数据日期**（来自响应里的 date，不是本地时间） */
+    var forexDate by mutableStateOf(forexCache.load()?.date)
+        private set
+
+    /** 打开开关时顺手拉一次，用户不用等到明天 */
+    fun setForexAuto(enabled: Boolean) {
+        ForexScheduler.setEnabled(app, enabled)
+        forexAutoEnabled = enabled
+        if (enabled) syncForex()
+    }
+
+    fun syncForex(force: Boolean = true) {
+        if (forexState is ForexUiState.Syncing) return
+        forexState = ForexUiState.Syncing
+        viewModelScope.launch {
+            val outcome = ForexSyncer.forApp(app).sync(force = force)
+            forexState = when (outcome) {
+                is ForexSyncOutcome.Fresh -> {
+                    forexDate = outcome.table.date
+                    ForexUiState.Done(stale = false)
+                }
+                is ForexSyncOutcome.Cached -> {
+                    forexDate = outcome.table.date
+                    ForexUiState.Done(stale = false)
+                }
+                is ForexSyncOutcome.Stale -> {
+                    // 有旧数据可用，但**必须让用户知道这是旧的**
+                    forexDate = outcome.table.date
+                    ForexUiState.Done(stale = true)
+                }
+                is ForexSyncOutcome.Failed ->
+                    ForexUiState.Error(outcome.error?.message ?: "网络不可用")
+            }
+        }
     }
 
     /** 报告币种实体。数据库还没读出来时退回人民币 */

@@ -12,6 +12,8 @@ import com.liuhaoran.hobao.data.db.HoBaoDatabase
 import com.liuhaoran.hobao.data.db.entity.CategoryEntity
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
 import com.liuhaoran.hobao.data.db.entity.ExpenseEntity
+import com.liuhaoran.hobao.data.forex.ForexConfig
+import com.liuhaoran.hobao.data.forex.ForexRateTable
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -51,6 +53,28 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
      */
     suspend fun updateRate(code: String, ratePerCny: Double) =
         currencyDao.updateRate(code, ratePerCny, System.currentTimeMillis())
+
+    /**
+     * 把一张**联网抓到的**汇率表批量写进 currencies 表。
+     *
+     * 【和 updateRate 的区别】
+     * updateRate 是用户手填一个币种；这里是整表刷新，一次改 5 行。
+     * 共用同一条 DAO 语句 —— 所以「改汇率不动历史账单」的性质自动成立
+     * （账单里存的是各自的快照，根本不读这张表）。
+     *
+     * ⚠️ 这里**故意不做两位小数截断**。
+     *    手填的汇率限定两位是用户自己定的输入规则；API 给的是 8~9 位有效数字。
+     *    把 USD 截成 0.15 会让每笔美元账的折算误差达到 0.7%（100 美元差 4 毛 4）。
+     *    显示层仍然只显示两位，所以界面上看不出区别，但账算得对。
+     */
+    suspend fun applyForexTable(table: ForexRateTable) {
+        val now = System.currentTimeMillis()
+        table.ratesPerBase.forEach { (code, rate) ->
+            if (ForexConfig.isSupported(code) && rate > 0.0) {
+                currencyDao.updateRate(code, rate, now)
+            }
+        }
+    }
 
     // ══════════════════════ 备份：导出 ══════════════════════
 
