@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-Hans"><head><meta charset="utf-8">
+<title>荷包 · 数据库结构</title>
+<style>
+  body { margin:0; font-family: system-ui,-apple-system,'PingFang SC',sans-serif;
+         color: var(--foreground,#111); background: transparent; }
+  svg { display:block; max-width:100%; height:auto; }
+</style></head>
+<body><svg viewBox="0 0 1180 568" width="100%" xmlns="http://www.w3.org/2000/svg"
+     font-family="system-ui,-apple-system,'PingFang SC',sans-serif">
+<rect x="24" y="96" width="320" height="248" rx="14" fill="var(--card, #ffffff)" stroke="var(--border, #e5e7eb)" stroke-width="1.5"/>
+<line x1="24" y1="148" x2="344" y2="148" stroke="var(--border, #e5e7eb)" stroke-width="1"/>
+<text x="40" y="120" font-size="16" font-weight="700" fill="var(--foreground, #111827)">categories</text>
+<text x="328" y="120" font-size="11" text-anchor="end" fill="var(--muted-foreground, #6b7280)">7 行 · 分类</text>
+<text x="40" y="165.5" font-size="13" font-weight="650" fill="var(--foreground, #111827)">id</text>
+<text x="166" y="165.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<rect x="298" y="152.5" width="30" height="17" rx="5" fill="#8b5cf6" opacity="0.16"/>
+<text x="313.0" y="165.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#8b5cf6">PK</text>
+<text x="40" y="192.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">name</text>
+<text x="166" y="192.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<text x="328" y="192.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">显示名</text>
+<text x="40" y="219.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">colorArgb</text>
+<text x="166" y="219.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="328" y="219.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">ARGB</text>
+<text x="40" y="246.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">sortOrder</text>
+<text x="166" y="246.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<rect x="298" y="233.5" width="30" height="17" rx="5" fill="#0ea5e9" opacity="0.16"/>
+<text x="313.0" y="246.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#0ea5e9">IDX</text>
+<text x="40" y="273.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">isArchived</text>
+<text x="166" y="273.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="328" y="273.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">软删除</text>
+<text x="40" y="300.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">createdAt</text>
+<text x="166" y="300.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="40" y="331" font-size="10" fill="var(--muted-foreground, #6b7280)">index_categories_sortOrder</text>
+<rect x="430" y="96" width="320" height="302" rx="14" fill="var(--card, #ffffff)" stroke="var(--border, #e5e7eb)" stroke-width="1.5"/>
+<line x1="430" y1="148" x2="750" y2="148" stroke="var(--border, #e5e7eb)" stroke-width="1"/>
+<text x="446" y="120" font-size="16" font-weight="700" fill="var(--foreground, #111827)">expenses</text>
+<text x="734" y="120" font-size="11" text-anchor="end" fill="var(--muted-foreground, #6b7280)">9 行 · 账单 · 中心表</text>
+<text x="446" y="165.5" font-size="13" font-weight="650" fill="var(--foreground, #111827)">id</text>
+<text x="572" y="165.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<rect x="704" y="152.5" width="30" height="17" rx="5" fill="#8b5cf6" opacity="0.16"/>
+<text x="719.0" y="165.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#8b5cf6">PK</text>
+<text x="446" y="192.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">amountMinor</text>
+<text x="572" y="192.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="734" y="192.5" font-size="11" text-anchor="end" fill="var(--muted-foreground, #6b7280)">🔒</text>
+<text x="696" y="192.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">最小单位</text>
+<text x="446" y="219.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">currencyCode</text>
+<text x="572" y="219.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<rect x="704" y="206.5" width="30" height="17" rx="5" fill="#0ea5e9" opacity="0.16"/>
+<text x="719.0" y="219.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#0ea5e9">IDX</text>
+<text x="696" y="219.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">⇢ code</text>
+<text x="446" y="246.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">ratePerCny</text>
+<text x="572" y="246.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">REAL</text>
+<text x="734" y="246.5" font-size="11" text-anchor="end" fill="var(--muted-foreground, #6b7280)">🔒</text>
+<text x="696" y="246.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">快照</text>
+<text x="446" y="273.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">reason</text>
+<text x="572" y="273.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<text x="446" y="300.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">categoryId</text>
+<text x="572" y="300.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<rect x="704" y="287.5" width="30" height="17" rx="5" fill="#0ea5e9" opacity="0.16"/>
+<text x="719.0" y="300.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#0ea5e9">IDX</text>
+<text x="696" y="300.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">→ id</text>
+<text x="446" y="327.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">createdAt</text>
+<text x="572" y="327.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<rect x="704" y="314.5" width="30" height="17" rx="5" fill="#0ea5e9" opacity="0.16"/>
+<text x="719.0" y="327.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#0ea5e9">IDX</text>
+<text x="696" y="327.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">毫秒</text>
+<text x="446" y="354.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">updatedAt</text>
+<text x="572" y="354.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="446" y="385" font-size="10" fill="var(--muted-foreground, #6b7280)">3 个索引：categoryId · createdAt · currencyCode</text>
+<rect x="836" y="96" width="320" height="302" rx="14" fill="var(--card, #ffffff)" stroke="var(--border, #e5e7eb)" stroke-width="1.5"/>
+<line x1="836" y1="148" x2="1156" y2="148" stroke="var(--border, #e5e7eb)" stroke-width="1"/>
+<text x="852" y="120" font-size="16" font-weight="700" fill="var(--foreground, #111827)">currencies</text>
+<text x="1140" y="120" font-size="11" text-anchor="end" fill="var(--muted-foreground, #6b7280)">6 行 · 货币与汇率</text>
+<text x="852" y="165.5" font-size="13" font-weight="650" fill="var(--foreground, #111827)">code</text>
+<text x="978" y="165.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<rect x="1110" y="152.5" width="30" height="17" rx="5" fill="#8b5cf6" opacity="0.16"/>
+<text x="1125.0" y="165.0" font-size="9.5" font-weight="700" text-anchor="middle" fill="#8b5cf6">PK</text>
+<text x="1102" y="165.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">ISO 4217</text>
+<text x="852" y="192.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">nameZh</text>
+<text x="978" y="192.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<text x="852" y="219.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">symbol</text>
+<text x="978" y="219.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">TEXT</text>
+<text x="1140" y="219.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">显示时才用</text>
+<text x="852" y="246.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">minorUnits</text>
+<text x="978" y="246.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="1140" y="246.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">0=日元</text>
+<text x="852" y="273.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">ratePerCny</text>
+<text x="978" y="273.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">REAL</text>
+<text x="1140" y="273.5" font-size="9.5" text-anchor="end" fill="var(--muted-foreground, #6b7280)">1 CNY = ?</text>
+<text x="852" y="300.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">isEnabled</text>
+<text x="978" y="300.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="852" y="327.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">sortOrder</text>
+<text x="978" y="327.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="852" y="354.5" font-size="13" font-weight="400" fill="var(--foreground, #111827)">rateUpdatedAt</text>
+<text x="978" y="354.5" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" fill="var(--muted-foreground, #6b7280)">INTEGER</text>
+<text x="852" y="385" font-size="10" fill="var(--muted-foreground, #6b7280)">isBase 是算出来的，不存列</text>
+
+<path d="M 430 296.5 C 387.0 296.5, 387.0 161.5, 344 161.5" fill="none"
+      stroke="#8b5cf6" stroke-width="2"/>
+<circle cx="430" cy="296.5" r="4" fill="#8b5cf6"/>
+<circle cx="344" cy="161.5" r="4" fill="#8b5cf6"/>
+<text x="387.0" y="153.5" font-size="10.5" text-anchor="middle" fill="#8b5cf6" font-weight="600">N : 1</text>
+
+<path d="M 750 215.5 C 820 215.5, 766 161.5, 836 161.5" fill="none"
+      stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 5"/>
+<circle cx="750" cy="215.5" r="4" fill="#f59e0b"/>
+<circle cx="836" cy="161.5" r="4" fill="#f59e0b"/>
+<text x="793.0" y="153.5" font-size="10.5" text-anchor="middle" fill="#f59e0b"
+      font-weight="600">无外键</text>
+
+
+<g transform="translate(24,438)">
+  <text x="0" y="0" font-size="12" font-weight="700" fill="var(--foreground, #111827)">图例</text>
+  <g transform="translate(0,16)">
+    <rect x="0" y="0" width="26" height="16" rx="5" fill="#8b5cf6" opacity="0.16"/>
+    <text x="13" y="12" font-size="9.5" text-anchor="middle" font-weight="700" fill="#8b5cf6">PK</text>
+    <text x="34" y="12" font-size="11" fill="var(--muted-foreground, #6b7280)">主键</text>
+
+    <rect x="96" y="0" width="30" height="16" rx="5" fill="#0ea5e9" opacity="0.16"/>
+    <text x="111" y="12" font-size="9.5" text-anchor="middle" font-weight="700" fill="#0ea5e9">IDX</text>
+    <text x="132" y="12" font-size="11" fill="var(--muted-foreground, #6b7280)">索引（不是键，只加速查询）</text>
+
+    <text x="330" y="12" font-size="11" fill="var(--foreground, #111827)">🔒</text>
+    <text x="346" y="12" font-size="11" fill="var(--muted-foreground, #6b7280)">冻结值：写入后不再变</text>
+
+    <text x="520" y="12" font-size="11" fill="#8b5cf6">━━</text>
+    <text x="548" y="12" font-size="11" fill="var(--muted-foreground, #6b7280)">外键约束（数据库强制的引用）</text>
+
+    <text x="770" y="12" font-size="11" fill="#f59e0b">╍╍</text>
+    <text x="798" y="12" font-size="11" fill="var(--muted-foreground, #6b7280)">逻辑引用（靠约守，没人管）</text>
+  </g>
+</g>
+
+
+<g transform="translate(24,508)">
+  <text x="0" y="0" font-size="12" font-weight="700" fill="var(--foreground, #111827)">schema 版本</text>
+  <text x="90" y="0" font-size="12" fill="var(--foreground, #111827)">user_version = 2</text>
+  <text x="230" y="0" font-size="11" fill="var(--muted-foreground, #6b7280)">Room 用 room_master_table 里的 identity_hash 校验表结构；android_metadata 存 locale</text>
+</g>
+
+</svg></body></html>

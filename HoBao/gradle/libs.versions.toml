@@ -19,6 +19,13 @@ lifecycleViewmodelCompose = "2.11.0"
 materialIconsCore = "1.7.8"
 # WorkManager：每日后台同步汇率的调度器
 work = "2.12.0"
+# Vico：Compose 原生图表库（Apache 2.0）
+# ⚠️ 卡在 3.2.3 不是随手写的：3.3.x 用 Kotlin 2.4.10 编译，元数据版本 2.4.0，
+#    而 AGP 9.4.1 内置 Kotlin 2.2.10 的编译器只能读到 2.3.0 —— 引 3.3.1 直接编译失败。
+#    3.2.3 用 Kotlin 2.3.21（元数据 2.3.0），刚好能读。
+#    代价：3.3 才加的 PieChartHost 用不了 → 环形图自己用 Canvas 画。
+#    真要升，得先确认 AGP 内置 Kotlin 能不能换版本，那是另一个量级的改动。
+vico = "3.2.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -39,6 +46,11 @@ androidx-material-icons-core = { group = "androidx.compose.material", name = "ma
 # ── 后台任务 ──
 # runtime-ktx = WorkManager 本体 + 协程 Worker 支持
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+
+# ── 图表 ──
+# compose-m3 只是"用 Material3 配色包装 Vico"的一层皮，
+# 真正的图表代码在它传递依赖的 multiplatform 模块里，所以只引这一个就够。
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 
 # ── Room 数据库 ──
 # runtime  = 运行时库，界面/逻辑里用

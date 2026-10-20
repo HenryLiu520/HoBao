@@ -148,7 +148,9 @@ fun AddExpenseScreen(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "共 ${vm.thisMonthCount} 笔 · 按今日汇率折算",
+                    // 用的是每条账**记账当时**冻结的汇率快照，不是今天的汇率 ——
+                    // 原来写"按今日汇率折算"是错的：改汇率不会动历史账，这句话会误导用户
+                    text = "共 ${vm.thisMonthCount} 笔 · 按记账时汇率折算",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

@@ -76,6 +76,17 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         }
     }
 
+    // ══════════════════════ 分析 ══════════════════════
+    //
+    // 这三个方法故意只做转发、不加逻辑：聚合的**口径**在 SQL 里，
+    // **命名和展示**在 ViewModel 里。中间这一层不掺和，出问题时容易定位。
+
+    suspend fun categorySums(from: Long, to: Long) = expenseDao.categorySums(from, to)
+
+    suspend fun analysisTotal(from: Long, to: Long) = expenseDao.analysisTotal(from, to)
+
+    suspend fun dailySums(from: Long, to: Long) = expenseDao.dailySums(from, to)
+
     // ══════════════════════ 备份：导出 ══════════════════════
 
     /**

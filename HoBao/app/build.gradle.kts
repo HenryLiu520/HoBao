@@ -93,6 +93,9 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.core)
 
+    // ── 图表（Vico，Apache 2.0）──
+    implementation(libs.vico.compose.m3)
+
     // ── 后台任务（每日同步汇率）──
     implementation(libs.androidx.work.runtime.ktx)
 

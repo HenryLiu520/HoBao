@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,6 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.liuhaoran.hobao.ui.navigation.Destination
 import com.liuhaoran.hobao.ui.screen.AddExpenseScreen
+import com.liuhaoran.hobao.ui.screen.AnalysisScreen
 import com.liuhaoran.hobao.ui.screen.DataTransferScreen
 import com.liuhaoran.hobao.ui.screen.HistoryScreen
 import com.liuhaoran.hobao.ui.screen.RatesScreen
@@ -48,7 +50,7 @@ private val SECONDARY_TITLES = mapOf(
  * app 的外壳：顶部标题栏 + 底部页签 + 中间的页面容器。
  *
  * 【两个层级】
- * 一级页：三个页签（记一笔 / 回顾 / 设置）—— 才有底部导航栏
+ * 一级页：四个页签（记一笔 / 回顾 / 分析 / 设置）—— 才有底部导航栏
  * 二级页：汇率 —— 从设置点进去，有返回箭头，**没有底部导航栏**
  *
  * 判断"现在是不是二级页"用 backStack 的当前路由，而不是另存一个布尔值 ——
@@ -100,7 +102,12 @@ fun HoBaoApp() {
                                     }
                                 }
                             },
-                            icon = { Icon(dest.icon, contentDescription = dest.label) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(dest.iconRes),
+                                    contentDescription = dest.label,
+                                )
+                            },
                             label = { Text(dest.label) },
                         )
                     }
@@ -123,6 +130,9 @@ fun HoBaoApp() {
             }
             composable(Destination.History.route) {
                 HistoryScreen(vm = vm)
+            }
+            composable(Destination.Analysis.route) {
+                AnalysisScreen(vm = vm)
             }
             composable(Destination.Settings.route) {
                 SettingsScreen(

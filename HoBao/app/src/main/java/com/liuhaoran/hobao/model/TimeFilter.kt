@@ -50,6 +50,60 @@ fun utcMidnightToLocalDay(utcMillis: Long, startOfDay: Boolean): Long =
         .toLocalDate().toEpochMillisLocal(startOfDay)
 
 /**
+ * SQL 用的**半开区间** `[from, toExclusive)`。
+ *
+ * 【为什么不能用 contains() 直接做查询】
+ * `contains()` 回答的是"这一个时间戳在不在范围内"，是**谓词**；
+ * SQL 的 WHERE 需要的是一个**区间**。两件事，必须显式转换。
+ *
+ * 【为什么半开】
+ * 用闭区间 [start, end] 时，"end 那一刻"的账要么被算两次、要么因为精度被漏掉。
+ * 半开区间 [start, end) 让边界永远只属于一边。
+ */
+data class MillisRange(val from: Long, val toExclusive: Long)
+
+/**
+ * 把筛选器翻译成毫秒区间。
+ *
+ * ⚠️ 这里的每个分支都必须和上面 `contains()` 的语义**完全一致** ——
+ *    不一致的话，回顾页能看到 N 笔，分析页却算出 N-1 笔，而且没人能解释为什么。
+ */
+fun TimeFilter.toMillisRange(): MillisRange {
+    val today = LocalDate.now()
+    fun startOf(d: LocalDate) = d.toEpochMillisLocal(true)
+
+    return when (this) {
+        TimeFilter.All -> MillisRange(Long.MIN_VALUE, Long.MAX_VALUE)
+
+        TimeFilter.Today -> MillisRange(startOf(today), startOf(today.plusDays(1)))
+
+        TimeFilter.ThisWeek -> {
+            // 和 contains() 一致：周一到**今天**（不是周日）
+            val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            MillisRange(startOf(monday), startOf(today.plusDays(1)))
+        }
+
+        TimeFilter.ThisMonth -> {
+            val ym = YearMonth.from(today)
+            MillisRange(startOf(ym.atDay(1)), startOf(ym.plusMonths(1).atDay(1)))
+        }
+
+        TimeFilter.ThisQuarter -> {
+            val start = LocalDate.of(today.year, (today.monthValue - 1) / 3 * 3 + 1, 1)
+            MillisRange(startOf(start), startOf(start.plusMonths(3)))
+        }
+
+        TimeFilter.ThisYear -> MillisRange(
+            startOf(LocalDate.of(today.year, 1, 1)),
+            startOf(LocalDate.of(today.year + 1, 1, 1)),
+        )
+
+        // Custom 的 endMillis 是"结束那天的最后一毫秒"，所以 +1 才是半开区间的右端
+        is TimeFilter.Custom -> MillisRange(startMillis, endMillis + 1)
+    }
+}
+
+/**
  * 时间范围筛选器。
  *
  * 用 sealed interface 而不是 enum，因为 Custom 需要带参数。

@@ -122,6 +122,30 @@
   .filtersum button{background:none;border:0;color:var(--primary);font-size:12px;font-family:inherit;cursor:pointer}
 
 
+
+  /* ── 分析页 ── */
+  .an-card{background:var(--surface-low);border-radius:22px;padding:14px 0 8px;margin-top:12px}
+  .an-title{font-size:15px;font-weight:600;margin:0 16px 6px}
+  .an-head{display:flex;justify-content:space-between;align-items:baseline;margin:0 16px 2px}
+  .an-count{font-size:12px;color:var(--on-surface-variant)}
+  .donut-wrap{position:relative;width:200px;height:200px;margin:6px auto 2px}
+  .donut-wrap svg{width:100%;height:100%;display:block}
+  .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;pointer-events:none}
+  .dc-label{font-size:11px;color:var(--on-surface-variant)}
+  .dc-value{font-size:17px;font-weight:700;margin-top:2px}
+  .an-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-top:1px solid rgba(0,0,0,.06)}
+  .an-row .nm{flex:1;font-size:14.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .an-row .amt{font-size:14px;font-weight:600;text-align:right}
+  .an-row .pct{font-size:11.5px;color:var(--on-surface-variant);text-align:right;margin-top:2px}
+  .chart-box{position:relative}
+  /* 纵轴冻结在左边：横向滚动时刻度不跟着跑（真机的轴是固定的） */
+  .yaxis{position:absolute;left:0;top:0;pointer-events:none;background:var(--surface-low)}
+  .chart-scroll{overflow-x:auto;padding:4px 0 6px;scrollbar-width:none}
+  .chart-scroll::-webkit-scrollbar{display:none}
+  .chart-scroll svg{display:block}
+  .an-foot{font-size:11.5px;color:var(--on-surface-variant);line-height:1.7;margin:14px 4px 0}
+
   /* 底部页签 */
   .tabs{
     position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--bg);
@@ -261,10 +285,50 @@
       <div id="histList"></div>
     </div>
 
+
+    <!-- ═══ 分析 ═══ -->
+    <div class="screen" id="screen-analysis" hidden>
+      <div class="chips" id="rangeChips" style="margin-top:12px"></div>
+
+      <div class="totalcard">
+        <div>
+          <div class="label" id="anRangeLabel">本月 · 共 0 天</div>
+          <div class="big" id="anTotal">CNY 0.00</div>
+          <div class="sub" id="anSub">0 笔 · 日均 CNY 0.00</div>
+        </div>
+      </div>
+
+      <div class="an-card">
+        <div class="an-title">分类占比</div>
+        <div class="donut-wrap">
+          <svg id="donut" viewBox="0 0 200 200"></svg>
+          <div class="donut-center">
+            <div class="dc-label">总支出</div>
+            <div class="dc-value" id="donutTotal">CNY 0.00</div>
+          </div>
+        </div>
+        <div id="catList"></div>
+      </div>
+
+      <div class="an-card">
+        <div class="an-head">
+          <span class="an-title" style="margin:0">趋势</span>
+          <span class="an-count" id="trendCount">0 天</span>
+        </div>
+        <div class="chips" id="granChips" style="padding:6px 16px 2px"></div>
+        <div class="chart-box">
+          <div class="chart-scroll" id="chartScroll"><svg id="trendChart" height="190"></svg></div>
+          <svg class="yaxis" id="yaxis" height="190"></svg>
+        </div>
+      </div>
+
+      <div class="an-foot">折人民币按每条账<b>记账当时</b>的汇率快照计算，不是今天的汇率。</div>
+    </div>
     <!-- 页签 -->
     <div class="tabs">
       <button class="tab" id="tabAdd" aria-selected="true"><span class="pill">＋</span>记一笔</button>
       <button class="tab" id="tabHist" aria-selected="false"><span class="pill">☰</span>回顾</button>
+      <button class="tab" id="tabAna" aria-selected="false"><span class="pill">◔</span>分析</button>
     </div>
   </div>
 
@@ -317,12 +381,26 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) { state.expenses = JSON.parse(raw) || []; return; }
   } catch (e) { /* 存储坏了就当空的 */ }
-  // 第一次来：塞 3 条样例，不然一进来空荡荡看不出东西
+  // 第一次来：塞一批样例，不然一进来空荡荡看不出东西。
+  // 特意跨了大半个月 + 跨月，这样「分析」页的按日/按周/按月才有东西可看。
+  const ago = (days, h, mi) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    d.setHours(h, mi, 0, 0);
+    return d.getTime();
+  };
   const now = Date.now();
   state.expenses = [
-    { id: 1, amountMinor: 4200, code: "CNY", rate: 1, reason: "午饭", cat: "餐饮", at: now - 3 * 3600e3 },
-    { id: 2, amountMinor: 800,  code: "CNY", rate: 1, reason: "地铁", cat: "交通", at: now - 26 * 3600e3 },
-    { id: 3, amountMinor: 3800, code: "HKD", rate: 1.09, reason: "咖啡豆", cat: "购物", at: now - 50 * 3600e3 },
+    { id: 1,  amountMinor: 4200,  code: "CNY", rate: 1,    reason: "午饭",   cat: "餐饮", at: now - 3 * 3600e3 },
+    { id: 2,  amountMinor: 800,   code: "CNY", rate: 1,    reason: "地铁",   cat: "交通", at: ago(1, 8, 30) },
+    { id: 3,  amountMinor: 3800,  code: "HKD", rate: 1.09, reason: "咖啡豆", cat: "购物", at: ago(2, 16, 0) },
+    { id: 4,  amountMinor: 12990, code: "CNY", rate: 1,    reason: "耳机",   cat: "购物", at: ago(5, 14, 0) },
+    { id: 5,  amountMinor: 980,   code: "JPY", rate: 20.8, reason: "巴士",   cat: "交通", at: ago(8, 9, 10) },
+    { id: 6,  amountMinor: 26000, code: "CNY", rate: 1,    reason: "房租",   cat: "住宿", at: ago(12, 10, 0) },
+    { id: 7,  amountMinor: 5000,  code: "CNY", rate: 1,    reason: "电影",   cat: "娱乐", at: ago(16, 20, 30) },
+    { id: 8,  amountMinor: 3000,  code: "CNY", rate: 1,    reason: "课本",   cat: "学习", at: ago(19, 15, 0) },
+    { id: 9,  amountMinor: 15000, code: "CNY", rate: 1,    reason: "聚餐",   cat: "餐饮", at: ago(35, 19, 0) },
+    { id: 10, amountMinor: 8000,  code: "CNY", rate: 1,    reason: "房费",   cat: "住宿", at: ago(52, 11, 0) },
   ];
   save();
 }
@@ -378,7 +456,7 @@ function renderEntry() {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
   $("monthTotal").textContent = fmt(cny.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0), "CNY");
-  $("monthSub").textContent = "共 " + cny.length + " 笔 · 按今日汇率折算";
+  $("monthSub").textContent = "共 " + cny.length + " 笔 · 按记账时汇率折算";
 
   $("currencyVal").textContent = state.entryCurrency;
 
@@ -522,19 +600,254 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
 }
 
+
+/* ══════════ 分析 ══════════ */
+/* 和真机同一套口径：
+   1. 聚合只到"天"，周/月/季/年在内存里折叠
+   2. 换粒度不改总额
+   3. 只算到今天，未来的日子不补零
+   4. 周从周一起（和「本周」一致）                                  */
+const AN_ACCENT = "#3D5AFE";
+const AN_RANGES = [
+  { k: "week", t: "本周" }, { k: "month", t: "本月" },
+  { k: "quarter", t: "本季" }, { k: "year", t: "本年" },
+];
+const AN_GRANS = [
+  { k: "day", t: "日", u: "天" }, { k: "week", t: "周", u: "周" },
+  { k: "month", t: "月", u: "个月" }, { k: "quarter", t: "季度", u: "季" },
+  { k: "year", t: "年", u: "年" },
+];
+state.analysisRange = "month";
+state.granularity = "day";
+state.granPicked = false;
+
+function anRange(kind) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let start;
+  if (kind === "week") {
+    const dow = (today.getDay() + 6) % 7;              // 周一 = 0
+    start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dow);
+  } else if (kind === "month") {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (kind === "quarter") {
+    start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  } else {
+    start = new Date(now.getFullYear(), 0, 1);
+  }
+  const endEx = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  return { start, endEx };
+}
+
+/* 这一天属于哪个桶 —— 返回桶的起始日 */
+function bStart(d, g) {
+  const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+  if (g === "week") {
+    const dow = (d.getDay() + 6) % 7;
+    return new Date(y, m, day - dow);
+  }
+  if (g === "month") return new Date(y, m, 1);
+  if (g === "quarter") return new Date(y, Math.floor(m / 3) * 3, 1);
+  if (g === "year") return new Date(y, 0, 1);
+  return new Date(y, m, day);
+}
+function bNext(d, g) {
+  const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+  if (g === "week") return new Date(y, m, day + 7);
+  if (g === "month") return new Date(y, m + 1, 1);
+  if (g === "quarter") return new Date(y, m + 3, 1);
+  if (g === "year") return new Date(y + 1, 0, 1);
+  return new Date(y, m, day + 1);
+}
+function bLabel(d, g) {
+  const m = d.getMonth() + 1, day = d.getDate();
+  if (g === "day" || g === "week") return m + "/" + String(day).padStart(2, "0");
+  if (g === "month") return m + "月";
+  if (g === "quarter") return "Q" + (Math.floor(d.getMonth() / 3) + 1);
+  return String(d.getFullYear());
+}
+
+function anBuckets(start, endEx, g) {
+  const out = [], idx = new Map();
+  for (let d = bStart(start, g); d < endEx && out.length < 400; d = bNext(d, g)) {
+    idx.set(d.getTime(), out.length);
+    out.push({ d: new Date(d), v: 0 });
+  }
+  const a = start.getTime(), b = endEx.getTime();
+  state.expenses.forEach(e => {
+    if (e.at < a || e.at >= b) return;
+    const i = idx.get(bStart(new Date(e.at), g).getTime());
+    if (i !== undefined) out[i].v += toCnyMinor(e.amountMinor, e.code, e.rate);
+  });
+  return out;
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+}
+
+function renderDonut(slices, totalMinor) {
+  const R = 70, C = 2 * Math.PI * R, gap = slices.length > 1 ? 3 : 0;
+  let off = 0, parts = [];
+  slices.forEach(s => {
+    const len = C * s.f;
+    parts.push(
+      '<circle cx="100" cy="100" r="' + R + '" fill="none" stroke="' + s.color + '"' +
+      ' stroke-width="26" stroke-dasharray="' + Math.max(0, len - gap) + ' ' + (C - len + gap) + '"' +
+      ' stroke-dashoffset="' + (-off) + '" transform="rotate(-90 100 100)"/>'
+    );
+    off += len;
+  });
+  $("donut").innerHTML = parts.join("");
+  $("donutTotal").textContent = fmt(totalMinor, "CNY");
+}
+
+function renderTrend(buckets, g) {
+  const n = buckets.length;
+  const svg = $("trendChart"), box = Math.max(240, $("chartScroll").clientWidth || 320);
+  const H = 190, padL = 46, padR = 16, padT = 14, padB = 26;
+  const per = Math.max(20, (box - padL - padR) / 14);
+  const W = n <= 14 ? box : Math.round(padL + n * per + padR);
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const maxCny = Math.max(0, ...buckets.map(b => b.v)) / 100;
+  const maxY = niceMax(maxCny);
+  const xAt = i => n === 1 ? padL + plotW / 2 : padL + i * plotW / (n - 1);
+  const yAt = v => padT + plotH - (v / 100 / maxY) * plotH;
+
+  let out = "", yOut = "";
+  // 网格画在主图里（跟着滚），刻度画在冻结层里（不跟着滚）
+  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+    const y = padT + plotH - f * plotH;
+    out += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y +
+           '" stroke="#D8D4E0" stroke-width="1" stroke-dasharray="4 4"/>';
+    yOut += '<text x="' + (padL - 8) + '" y="' + (y + 4) +
+            '" font-size="10.5" fill="#63606A" text-anchor="end">' + Math.round(maxY * f) + '</text>';
+  });
+  const ya = $("yaxis");
+  ya.setAttribute("width", padL);
+  ya.setAttribute("height", H);
+  ya.setAttribute("viewBox", "0 0 " + padL + " " + H);
+  ya.innerHTML = yOut;
+  // 面积
+  if (n > 1) {
+    let area = "M " + xAt(0) + " " + (padT + plotH);
+    buckets.forEach((b, i) => { area += " L " + xAt(i) + " " + yAt(b.v); });
+    area += " L " + xAt(n - 1) + " " + (padT + plotH) + " Z";
+    out += '<path d="' + area + '" fill="' + AN_ACCENT + '" opacity="0.16"/>';
+    // 折线
+    let line = "";
+    buckets.forEach((b, i) => { line += (i ? " L " : "M ") + xAt(i) + " " + yAt(b.v); });
+    out += '<path d="' + line + '" fill="none" stroke="' + AN_ACCENT +
+           '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+  // 数据点（只有一个桶时就靠这个点表达）
+  if (n <= 40) {
+    buckets.forEach((b, i) => {
+      out += '<circle cx="' + xAt(i) + '" cy="' + yAt(b.v) + '" r="3.6" fill="' + AN_ACCENT + '"/>';
+    });
+  }
+  // 横轴标签：最多 6 个
+  const step = Math.max(1, Math.ceil(n / 6));
+  buckets.forEach((b, i) => {
+    if (i % step !== 0 && i !== n - 1) return;
+    out += '<text x="' + xAt(i) + '" y="' + (H - 6) +
+           '" font-size="10.5" fill="#63606A" text-anchor="middle">' + bLabel(b.d, g) + '</text>';
+  });
+
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  svg.innerHTML = out;
+
+  // 默认停在最右（最近），和真机一致
+  const sc = $("chartScroll");
+  requestAnimationFrame(() => { sc.scrollLeft = sc.scrollWidth; });
+}
+
+function renderAnalysis() {
+  const { start, endEx } = anRange(state.analysisRange);
+  const days = Math.max(1, Math.round((endEx - start) / 86400000));
+  const a = start.getTime(), b = endEx.getTime();
+  const inRange = state.expenses.filter(e => e.at >= a && e.at < b);
+  const total = inRange.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0);
+
+  const label = (AN_RANGES.find(r => r.k === state.analysisRange) || AN_RANGES[1]).t;
+  $("anRangeLabel").textContent = label + " · 共 " + days + " 天";
+  $("anTotal").textContent = fmt(total, "CNY");
+  $("anSub").textContent = inRange.length + " 笔 · 日均 " + fmt(Math.round(total / days), "CNY");
+
+  // 分类占比
+  const byCat = new Map();
+  inRange.forEach(e => {
+    byCat.set(e.cat, (byCat.get(e.cat) || 0) + toCnyMinor(e.amountMinor, e.code, e.rate));
+  });
+  const slices = [...byCat.entries()]
+    .map(([name, v]) => ({ name, v, f: total > 0 ? v / total : 0, color: catColor(name) }))
+    .sort((x, y) => y.v - x.v);
+
+  if (slices.length) {
+    renderDonut(slices, total);
+    $("catList").innerHTML = slices.map(s =>
+      '<div class="an-row"><span class="dot" style="background:' + s.color + '"></span>' +
+      '<span class="nm">' + esc(s.name) + '</span>' +
+      '<span><div class="amt">' + fmt(s.v, "CNY") + '</div>' +
+      '<div class="pct">' + (s.f * 100).toFixed(1) + '% · ' +
+      inRange.filter(e => e.cat === s.name).length + ' 笔</div></span></div>'
+    ).join("");
+  } else {
+    renderDonut([], 0);
+    $("catList").innerHTML = '<div class="empty">这段时间还没有账单</div>';
+  }
+
+  // 趋势
+  const buckets = anBuckets(start, endEx, state.granularity);
+  const g = AN_GRANS.find(x => x.k === state.granularity) || AN_GRANS[0];
+  $("trendCount").textContent = buckets.length + " " + g.u;
+  renderTrend(buckets, state.granularity);
+
+  // 芯片
+  $("rangeChips").innerHTML = AN_RANGES.map(r =>
+    '<button class="chip" data-r="' + r.k + '" aria-pressed="' + (r.k === state.analysisRange) + '">' + r.t + '</button>'
+  ).join("");
+  $("rangeChips").querySelectorAll(".chip").forEach(el => {
+    el.onclick = () => {
+      state.analysisRange = el.dataset.r;
+      if (!state.granPicked) {
+        const coarse = state.analysisRange === "quarter" || state.analysisRange === "year";
+        state.granularity = coarse ? "month" : "day";
+      }
+      renderAnalysis();
+    };
+  });
+  $("granChips").innerHTML = AN_GRANS.map(x =>
+    '<button class="chip" data-g="' + x.k + '" aria-pressed="' + (x.k === state.granularity) + '">' + x.t + '</button>'
+  ).join("");
+  $("granChips").querySelectorAll(".chip").forEach(el => {
+    el.onclick = () => { state.granPicked = true; state.granularity = el.dataset.g; renderAnalysis(); };
+  });
+}
+
 /* ══════════ 交互绑定 ══════════ */
 function switchTab(which) {
-  const add = which === "add";
-  $("screen-add").hidden = !add;
-  $("screen-history").hidden = add;
-  $("tabAdd").setAttribute("aria-selected", String(add));
-  $("tabHist").setAttribute("aria-selected", String(!add));
-  $("title").textContent = add ? "记一笔" : "回顾";
-  add ? renderEntry() : renderHistory();
+  $("screen-add").hidden = which !== "add";
+  $("screen-history").hidden = which !== "history";
+  $("screen-analysis").hidden = which !== "analysis";
+  $("tabAdd").setAttribute("aria-selected", String(which === "add"));
+  $("tabHist").setAttribute("aria-selected", String(which === "history"));
+  $("tabAna").setAttribute("aria-selected", String(which === "analysis"));
+  $("title").textContent = which === "add" ? "记一笔" : which === "history" ? "回顾" : "分析";
+  if (which === "add") renderEntry();
+  else if (which === "history") renderHistory();
+  else renderAnalysis();
 }
 
 $("tabAdd").onclick = () => switchTab("add");
 $("tabHist").onclick = () => switchTab("history");
+$("tabAna").onclick = () => switchTab("analysis");
 $("currencyBtn").onclick = openCurrencySheet;
 $("funnel").onclick = openCategorySheet;
 $("scrim").onclick = closeSheet;
@@ -600,6 +913,10 @@ $("clearFilter").onclick = () => {
 /* ══════════ 启动 ══════════ */
 load();
 renderEntry();
+
+// 深链：index.html#analysis 直接打开分析页（也方便截图/分享）
+if (location.hash === "#analysis") switchTab("analysis");
+else if (location.hash === "#history") switchTab("history");
 </script>
 </body>
 </html>
