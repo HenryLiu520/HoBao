@@ -1,5 +1,6 @@
 package com.liuhaoran.hobao.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -86,4 +87,16 @@ data class ExpenseEntity(
      * 你既然能改，就得知道什么时候改的。
      */
     val updatedAt: Long,
-)
+) {
+    /**
+     * 是不是一笔退款 / 返现。
+     *
+     * 【为什么用"金额为负"表达，而不是再加一个布尔列】
+     * 退款就是把钱加回来 —— 它和花销是同一个东西的两个方向。
+     * 用符号表达之后：
+     *   SUM(amountMinor) 天然就是净额，一行 SQL 就对
+     *   不需要子表、不需要缓存列、不需要事务
+     * 代价是要在显示层把"支出 / 退款 / 净额"三个数分开算（见 ExpenseItem）。
+     */
+    val isRefund: Boolean get() = amountMinor < 0
+}

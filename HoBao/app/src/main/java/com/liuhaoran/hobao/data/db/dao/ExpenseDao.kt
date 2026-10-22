@@ -81,33 +81,49 @@ interface ExpenseDao {
     // ══════════════════ 分析用的聚合查询 ══════════════════
     //
     // 这三个方法的共同点：**只把结果运回来，不把原始行运回来**。
-    // 5 万条账，回顾页要搬 5 万行；分析页只要几十行。
+    //
+    // 【退款是负数行，这让 SQL 变简单了】
+    // 重构前退款是子表 + 缓存列，每条查询都要 `SUM(expr - e.refundedCnyCents)`。
+    // 现在退款就是一条负数账，`SUM(...)` 天然就是净额 —— 少了一个会漂移的缓存。
 
-    /** 分类占比：区间内每个分类合计多少人民币分 */
+    /**
+     * 分类占比：**只统计正数行（支出）**。
+     *
+     * 退款不参与占比：它是"负的支出"，画进饼图会得到负的扇区。
+     * 界面上它单独一行显示（「退款 −20.00」）。
+     */
     @Query(
         "SELECT e.categoryId AS categoryId, " +
             "SUM(" + CNY_CENTS_PER_ROW + ") AS cnyCents, " +
             "COUNT(*) AS cnt " +
             "FROM expenses e JOIN currencies c ON c.code = e.currencyCode " +
-            "WHERE e.createdAt >= :from AND e.createdAt < :to " +
+            "WHERE e.createdAt >= :from AND e.createdAt < :to AND e.amountMinor > 0 " +
             "GROUP BY e.categoryId ORDER BY cnyCents DESC"
     )
     suspend fun categorySums(from: Long, to: Long): List<CategorySumRow>
 
-    /** 区间总额 + 笔数。没有数据时 COALESCE 保证返回 0 而不是 null */
+    /**
+     * 区间的三个数：支出合计 / 退款合计 / 支出笔数。
+     *
+     * 【为什么用 CASE 分开算，而不是一次 SUM】
+     * 一次 SUM 得到的是净额，可能是负的 —— 而"本月花了 −20 元"是句荒谬的话。
+     * 三个数各自都不荒谬，净额由界面相加得出。
+     */
     @Query(
-        "SELECT COALESCE(SUM(" + CNY_CENTS_PER_ROW + "), 0) AS cnyCents, " +
-            "COUNT(*) AS cnt " +
+        "SELECT " +
+            "COALESCE(SUM(CASE WHEN e.amountMinor > 0 THEN " + CNY_CENTS_PER_ROW + " ELSE 0 END), 0) " +
+            "  AS expenseCnyCents, " +
+            "COALESCE(SUM(CASE WHEN e.amountMinor < 0 THEN " + CNY_CENTS_PER_ROW + " ELSE 0 END), 0) " +
+            "  AS refundCnyCents, " +
+            "COALESCE(SUM(CASE WHEN e.amountMinor > 0 THEN 1 ELSE 0 END), 0) AS cnt " +
             "FROM expenses e JOIN currencies c ON c.code = e.currencyCode " +
             "WHERE e.createdAt >= :from AND e.createdAt < :to"
     )
     suspend fun analysisTotal(from: Long, to: Long): TotalRow
 
     /**
-     * 按天汇总（本地时区）。
-     *
-     * 只下沉到"天"这一层；要按月看时在 Kotlin 里把 30 天折成 1 个月 ——
-     * 一年也就 366 行，再往下推给 SQL 不值。
+     * 按天汇总（本地时区）。值是**净额**，可能为负 ——
+     * 某天只退款没花钱，那根柱子就该朝下。
      */
     @Query(
         "SELECT strftime('%Y-%m-%d', e.createdAt / 1000, 'unixepoch', 'localtime') AS day, " +

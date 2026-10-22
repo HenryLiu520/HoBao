@@ -17,7 +17,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -26,22 +34,32 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.liuhaoran.hobao.R
 import com.liuhaoran.hobao.ui.component.ExpenseRowItem
-import com.liuhaoran.hobao.ui.component.FilterSheet
+import com.liuhaoran.hobao.util.formatMoney
+import com.liuhaoran.hobao.util.parseAmountToMinor
+import com.liuhaoran.hobao.util.toDayTimeText
+import com.liuhaoran.hobao.viewmodel.ExpenseItem
+import com.liuhaoran.hobao.viewmodel.IncomeItem
 import com.liuhaoran.hobao.viewmodel.ExpenseViewModel
+import com.liuhaoran.hobao.ui.component.FilterSheet
 import com.liuhaoran.hobao.viewmodel.MonthGroup
 
 /**
@@ -63,8 +81,20 @@ fun HistoryScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
 
+    // 两本账：0 = 花销（含退款），1 = 收入
+    var ledgerTab by rememberSaveable { mutableStateOf(0) }
+
     val visible = vm.visibleItems
-    val total = visible.sumOf { it.cnyCents }
+    // 【三个数，不是一个数】
+    // 退款是负数行。如果只算"净额"，某个月只退款时会得到"花了 −20 元"这种荒谬的话。
+    // 拆开之后：支出恒 ≥ 0、退款恒 ≤ 0、净额可正可负，每个数都有自己的意思。
+    val expenseTotal = visible.filter { !it.isRefund }.sumOf { it.cnyCents }
+    val refundTotal = visible.filter { it.isRefund }.sumOf { it.cnyCents }
+    val netTotal = expenseTotal + refundTotal
+
+    // 收入是另一本账
+    val incomeList = vm.visibleIncomes
+    val incomeTotal = incomeList.sumOf { it.cnyCents }
     val groups: List<MonthGroup> =
         if (vm.sortOrder.groupsByMonth) vm.groupByMonth(visible) else emptyList()
 
@@ -127,6 +157,25 @@ fun HistoryScreen(
 
         Spacer(Modifier.height(8.dp))
 
+        // ── 两本账切换 ──
+        // 花销和收入在存储上是两张表，界面也给两个账本，别混成一条时间线
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(0 to "花销", 1 to "收入").forEach { (tab, label) ->
+                FilterChip(
+                    selected = ledgerTab == tab,
+                    onClick = { ledgerTab = tab },
+                    label = { Text(label) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
         // ── 汇总卡 ──
         Card(
             modifier = Modifier
@@ -145,19 +194,30 @@ fun HistoryScreen(
             ) {
                 Column {
                     Text(
-                        text = "合计支出",
+                        text = if (ledgerTab == 0) "支出合计" else "收入合计",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                     Text(
-                        text = vm.reportText(total),
+                        // 收入账本下没有退款，直接显示收入合计
+                        text = vm.reportText(if (ledgerTab == 0) expenseTotal else incomeTotal),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
+                    if (ledgerTab == 0 && refundTotal != 0L) {
+                        // 退款单独一行。**绝不把净额显示成"支出"** —— 那是"花了 −20 元"
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "退款 " + vm.reportText(refundTotal) +
+                                " · 净 " + vm.reportText(netTotal),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
                 }
                 Text(
-                    text = "${visible.size} 笔",
+                    text = if (ledgerTab == 0) "${visible.size} 笔" else "${incomeList.size} 笔",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(top = 20.dp),
@@ -168,7 +228,9 @@ fun HistoryScreen(
         Spacer(Modifier.height(10.dp))
 
         // ── 列表 ──
-        if (visible.isEmpty()) {
+        if (ledgerTab == 1) {
+            IncomeList(incomeList, vm)
+        } else if (visible.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,8 +275,11 @@ fun HistoryScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                 )
+                                // 小计只算支出，所以必须**标出来**。
+                                // 不标的话，旁边躺着一笔 +5000 的工资，
+                                // 用户会以为这个小计算漏了。
                                 Text(
-                                    text = vm.reportText(group.subtotalCnyCents),
+                                    text = "支出 " + vm.reportText(group.subtotalCnyCents),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
@@ -236,5 +301,79 @@ fun HistoryScreen(
 
     if (showFilter) {
         FilterSheet(vm = vm, onDismiss = { showFilter = false })
+    }
+}
+
+
+/**
+ * 收入账本的列表。
+ *
+ * 它和花销列表长得像，但**不共用同一个模型** ——
+ * 收入没有退款、没有"净额"、不进分类占比。硬套一个模型只会到处写 if。
+ */
+@Composable
+private fun IncomeList(items: List<IncomeItem>, vm: ExpenseViewModel) {
+    if (items.isEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "这个区间还没有收入",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(items, key = { it.income.id }) { item ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(item.category.colorArgb))
+                    )
+                    Column(
+                        modifier = Modifier.padding(start = 14.dp).weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(item.income.reason, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = item.category.name + " · " +
+                                item.income.createdAt.toDayTimeText(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = "+" + vm.reportText(item.cnyCents),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                    IconButton(onClick = { vm.deleteIncome(item.income) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "删除这条收入",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

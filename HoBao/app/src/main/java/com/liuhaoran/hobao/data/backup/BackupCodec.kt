@@ -35,7 +35,7 @@ object BackupCodec {
      * ⚠️ 当前格式版本。**改文件结构就必须 +1，并写一个迁移器。**
      *    改数据库表结构不用动它 —— 文件格式和表结构是两件事。
      */
-    const val CURRENT_FORMAT_VERSION = 1
+    const val CURRENT_FORMAT_VERSION = 3
 
     const val APP_VERSION = "0.3"
 
@@ -52,6 +52,7 @@ object BackupCodec {
                     put("name", c.name)
                     put("sortOrder", c.sortOrder)
                     put("isArchived", c.isArchived)
+                    put("kind", c.kind)
                 })
             }
         })
@@ -77,6 +78,19 @@ object BackupCodec {
                     put("categoryName", e.categoryName)
                     put("createdAt", e.createdAt)
                     put("updatedAt", e.updatedAt)
+                })
+            }
+        })
+        data.put("incomes", JSONArray().apply {
+            file.incomes.forEach { i ->
+                put(JSONObject().apply {
+                    put("amountMinor", i.amountMinor)
+                    put("currencyCode", i.currencyCode)
+                    put("ratePerCny", i.ratePerCny)
+                    put("reason", i.reason)
+                    put("categoryName", i.categoryName)
+                    put("createdAt", i.createdAt)
+                    put("updatedAt", i.updatedAt)
                 })
             }
         })
@@ -124,6 +138,7 @@ object BackupCodec {
                 name = o.getString("name").trim(),
                 sortOrder = o.optInt("sortOrder", 0),
                 isArchived = o.optBoolean("isArchived", false),
+                kind = o.optInt("kind", 0),
             )
         } ?: emptyList()
 
@@ -150,6 +165,18 @@ object BackupCodec {
             )
         } ?: emptyList()
 
+        val incomes = data.optJSONArray("incomes")?.mapObjects { o ->
+            BackupIncome(
+                amountMinor = o.getLong("amountMinor"),
+                currencyCode = o.getString("currencyCode").uppercase(),
+                ratePerCny = o.optDouble("ratePerCny", 0.0),
+                reason = o.optString("reason", ""),
+                categoryName = o.optString("categoryName", "").trim(),
+                createdAt = o.getLong("createdAt"),
+                updatedAt = o.optLong("updatedAt", o.getLong("createdAt")),
+            )
+        } ?: emptyList()
+
         return BackupFile(
             formatVersion = version,
             exportedAt = migrated.optLong("exportedAt", 0L),
@@ -157,6 +184,7 @@ object BackupCodec {
             categories = categories,
             currencies = currencies,
             expenses = expenses,
+            incomes = incomes,
         )
     }
 
@@ -191,11 +219,58 @@ object BackupMigrator {
         var obj = root
         while (v < BackupCodec.CURRENT_FORMAT_VERSION) {
             obj = when (v) {
-                // 发布 v2 时在这里加分支
+                1 -> migrateV1ToV2(obj)
+                2 -> migrateV2ToV3(obj)
                 else -> throw BackupException("不认识的备份格式版本 v$v，请升级 app")
             }
             v++
         }
         return obj
+    }
+
+    /**
+     * v2 → v3：收入从 expenses 里拆出来，独立成 incomes 块。
+     *
+     * v2 的文件里，收入是 `expenses[]` 里 kind = 1 的那些行。
+     * 升级时把它们搬到 `incomes[]`，并把所有 expenses 上的 kind 字段删掉
+     * （v3 的 expenses 里只剩花销和负数退款，不需要 kind 了）。
+     */
+    private fun migrateV2ToV3(root: JSONObject): JSONObject {
+        val data = root.optJSONObject("data") ?: return root
+        val oldExpenses = data.optJSONArray("expenses")
+        if (oldExpenses != null) {
+            val spending = JSONArray()
+            val incomes = JSONArray()
+            for (i in 0 until oldExpenses.length()) {
+                val o = oldExpenses.optJSONObject(i) ?: continue
+                val isIncome = o.optInt("kind", 0) == 1
+                o.remove("kind")
+                if (isIncome) incomes.put(o) else spending.put(o)
+            }
+            data.put("expenses", spending)
+            // 已经有 incomes 块（理论上不会有）就保留原来的，别覆盖
+            if (!data.has("incomes")) data.put("incomes", incomes)
+        }
+        root.put("formatVersion", 3)
+        return root
+    }
+
+    /**
+     * v1 → v2：加了 kind 字段（支出 / 收入）。
+     *
+     * 老文件里所有账和分类都是支出，补 `kind = 0`。
+     * 注意这是**给 JSON 补字段**，不是在数据库里搬数据 —— 两件事别混。
+     */
+    private fun migrateV1ToV2(root: JSONObject): JSONObject {
+        val data = root.optJSONObject("data") ?: return root
+        listOf("categories", "expenses").forEach { key ->
+            val arr = data.optJSONArray(key) ?: return@forEach
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (!o.has("kind")) o.put("kind", 0)
+            }
+        }
+        root.put("formatVersion", 2)
+        return root
     }
 }

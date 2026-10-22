@@ -17,7 +17,10 @@ data class BackupFile(
     val appVersion: String,
     val categories: List<BackupCategory>,
     val currencies: List<BackupCurrency>,
+    /** 花销账本。退款/返现是**负数行**，存在这里面 */
     val expenses: List<BackupExpense>,
+    /** 收入账本（formatVersion 3 起独立成块） */
+    val incomes: List<BackupIncome>,
 )
 
 /**
@@ -29,6 +32,8 @@ data class BackupCategory(
     val name: String,
     val sortOrder: Int,
     val isArchived: Boolean,
+    /** 0 = 花销类，1 = 收入类（formatVersion 2 起） */
+    val kind: Int = 0,
 )
 
 data class BackupCurrency(
@@ -48,6 +53,17 @@ data class BackupExpense(
     val ratePerCny: Double,
     val reason: String,
     /** 用名字关联分类，不用 id（id 换台设备就变了） */
+    val categoryName: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+/** 一笔收入（另一本账） */
+data class BackupIncome(
+    val amountMinor: Long,
+    val currencyCode: String,
+    val ratePerCny: Double,
+    val reason: String,
     val categoryName: String,
     val createdAt: Long,
     val updatedAt: Long,

@@ -46,7 +46,15 @@ enum class TrendGranularity(val label: String, val unitZh: String) {
  */
 data class AnalysisData(
     val rangeLabel: String,
-    val totalCnyCents: Long,
+    /** 支出合计（正数行），恒 ≥ 0 */
+    val expenseCnyCents: Long,
+    /** 退款合计（负数行），恒 ≤ 0 */
+    val refundCnyCents: Long,
+    /** 净额 = 支出 + 退款。**可能为负**，界面显示成「净 −20.00」 */
+    val netCnyCents: Long,
+    /** 同区间内的收入合计（另一本账）。只显示一个小数字，不参与占比/趋势 */
+    val incomeCnyCents: Long,
+    /** 支出笔数（不含退款行） */
     val count: Int,
     /** 区间总天数（含没记账的日子）—— 这是"日均"的分母 */
     val days: Int,

@@ -44,12 +44,12 @@ android {
         targetSdk = 36       // 已适配到 Android 16(你手机的版本)
         // ⚠️ 每次发版都要 +1：签名相同 + versionCode 更大 = 用户能直接覆盖更新，
         //    否则系统会拒绝安装，只能卸载重装（数据全丢）
-        versionCode = 3
+        versionCode = 4
         // 版本号规则（三段，见 README「版本号规则」）：
         //   1.x.x  第一位 = 重大功能变化或算法改动  ← 自动联网更新属于这一类
         //   x.1.x  第二位 = 小功能
         //   x.x.1  第三位 = 修 bug
-        versionName = "1.0.0"
+        versionName = "2.0.0"
     }
 
     buildTypes {
@@ -75,6 +75,12 @@ android {
         // 个人项目先关掉，需要时手动跑 `gradle lint`。
         checkReleaseBuilds = false
     }
+}
+
+// Room 的结构导出目录：exportSchema = true 时，每个版本的结构会写成
+// app/schemas/<版本>.json。写迁移时拿它对比新旧结构，也能直接生成迁移测试。
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

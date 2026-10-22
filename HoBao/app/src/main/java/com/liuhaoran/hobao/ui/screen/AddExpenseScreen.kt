@@ -40,6 +40,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,11 +61,25 @@ import com.liuhaoran.hobao.ui.component.CurrencyPickerSheet
 import com.liuhaoran.hobao.ui.component.ExpenseRowItem
 import com.liuhaoran.hobao.util.formatMoney
 import com.liuhaoran.hobao.util.parseAmountToMinor
+import com.liuhaoran.hobao.data.db.entity.CategoryEntity
 import com.liuhaoran.hobao.viewmodel.ExpenseViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+
+/** 记账的三种模式 */
+private const val MODE_EXPENSE = 0
+private const val MODE_REFUND = 1
+private const val MODE_INCOME = 2
+
+private data class EntryMode(val kind: Int, val label: String)
+
+private val MODES = listOf(
+    EntryMode(MODE_EXPENSE, "− 支出"),
+    EntryMode(MODE_REFUND, "↩ 退款"),
+    EntryMode(MODE_INCOME, "+ 收入"),
+)
 
 /**
  * 界面一「记一笔」
@@ -82,6 +98,8 @@ fun AddExpenseScreen(
     onOpenRates: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 0 = 支出（正数），1 = 退款（存成负数），2 = 收入（另一本账）
+    var entryMode by rememberSaveable { mutableIntStateOf(MODE_EXPENSE) }
     var amountText by rememberSaveable { mutableStateOf("") }
     var reasonText by rememberSaveable { mutableStateOf("") }
     var selectedCategoryId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -93,7 +111,19 @@ fun AddExpenseScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
 
-    val categories = vm.activeCategories
+    // 支出和退款共用花销分类；收入用收入分类（两本账）
+    // 分类芯片横向可能放不下（退款/返现在最右边）。
+    // 切换模式时主动滚过去，不然用户看不到自己选中了哪个
+    val chipScroll = rememberScrollState()
+    LaunchedEffect(entryMode, selectedCategoryId) {
+        if (selectedCategoryId != null) chipScroll.animateScrollTo(chipScroll.maxValue)
+    }
+
+    val categories = if (entryMode == MODE_INCOME) {
+        vm.categoriesOf(CategoryEntity.KIND_INCOME)
+    } else {
+        vm.categoriesOf(CategoryEntity.KIND_SPENDING)
+    }
     val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
         ?: categories.firstOrNull()
 
@@ -153,6 +183,39 @@ fun AddExpenseScreen(
                     text = "共 ${vm.thisMonthCount} 笔 · 按记账时汇率折算",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                // 收入只在有的时候才出现 —— 一直挂着「收入 CNY 0.00」是噪音
+                if (vm.thisMonthIncomeCnyCents > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "本月收入 " + vm.reportText(vm.thisMonthIncomeCnyCents),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+
+        // ── 支出 / 收入 切换 ──
+        // 放在输入区上面：它是"这一笔是什么"，比填多少金额更靠前
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MODES.forEach { m ->
+                FilterChip(
+                    selected = entryMode == m.kind,
+                    onClick = {
+                        if (entryMode != m.kind) {
+                            entryMode = m.kind
+                            // 切到退款时默认选中「退款」分类 —— 它排在芯片列表最右边，
+                            // 不预选的话用户得横向滑到尽头才找得到
+                            selectedCategoryId = if (m.kind == MODE_REFUND) {
+                                vm.categoriesOf(CategoryEntity.KIND_SPENDING)
+                                    .firstOrNull { it.name == "退款" || it.name == "返现" }?.id
+                            } else {
+                                null   // 分类体系换了，旧的 id 不能留
+                            }
+                        }
+                    },
+                    label = { Text(m.label) },
                 )
             }
         }
@@ -281,7 +344,7 @@ fun AddExpenseScreen(
                 else -> Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                        .horizontalScroll(chipScroll),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     categories.forEach { c ->
@@ -299,12 +362,26 @@ fun AddExpenseScreen(
                     val cur = entry ?: return@Button
                     val cents = parseAmountToMinor(amountText, cur.minorUnits) ?: return@Button
                     val cat = selectedCategory ?: return@Button
-                    vm.addExpense(
-                        amountMinor = cents,
-                        reason = reasonText,
-                        categoryId = cat.id,
-                        createdAt = createdAtFor(pickedDate),
-                    )
+                    val createdAt = createdAtFor(pickedDate)
+                    if (entryMode == MODE_INCOME) {
+                        // 收入进另一本账：不影响任何"花了多少"
+                        vm.addIncome(
+                            amountMinor = cents,
+                            reason = reasonText,
+                            categoryId = cat.id,
+                            createdAt = createdAt,
+                        )
+                    } else {
+                        // ⚠️ 退款存成**负数**。这就是"花销账本里的加减法"，
+                        //    一行 SUM 天然得到净额，不需要子表也不需要缓存列。
+                        val signed = if (entryMode == MODE_REFUND) -cents else cents
+                        vm.addExpense(
+                            amountMinor = signed,
+                            reason = reasonText,
+                            categoryId = cat.id,
+                            createdAt = createdAt,
+                        )
+                    }
                     amountText = ""
                     reasonText = ""
                     // ⚠️ 日期必须复位：不然补记一笔上个月的账之后，
@@ -313,8 +390,12 @@ fun AddExpenseScreen(
                     focusManager.clearFocus()
                     keyboard?.hide()
                     val whenText = if (isToday) "" else " · ${pickedDate.toDayLabel()}"
+                    val sign = if (entryMode == MODE_REFUND) "−" else ""
+                    val prefix = if (entryMode == MODE_INCOME) "+" else sign
                     scope.launch {
-                        snackbarHostState.showSnackbar("已记下 ${formatMoney(cents, cur)}$whenText")
+                        snackbarHostState.showSnackbar(
+                            "已记下 $prefix${formatMoney(cents, cur)}$whenText"
+                        )
                     }
                 },
                 enabled = canSave,

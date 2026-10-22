@@ -167,7 +167,7 @@ private fun SummaryCard(data: AnalysisData) {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = formatAmount(data.totalCnyCents, "CNY ", 2),
+                text = formatAmount(data.expenseCnyCents, "CNY ", 2),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -179,6 +179,26 @@ private fun SummaryCard(data: AnalysisData) {
                 // 日均：分母是**区间天数**（含没记账的日子），比的是消费节奏
                 // 金额一律带 ISO 代码 —— 全 app 统一，见 文档/10
                 StatChip("日均 " + formatAmount(data.avgPerDayCents, "CNY ", 2))
+            }
+            // 退款 + 净额。**绝不把净额冒充"支出"** ——
+            // 只退款不花钱的月份，净额会是负的，那必须明说是"净"，不能说"花了 −20 元"。
+            if (data.refundCnyCents != 0L) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "退款 " + formatAmount(data.refundCnyCents, "CNY ", 2) +
+                        " · 净 " + formatAmount(data.netCnyCents, "CNY ", 2),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // 收入是另一本账，只给一个数字，不参与占比和趋势
+            if (data.incomeCnyCents > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "同区间收入 " + formatAmount(data.incomeCnyCents, "CNY ", 2),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -217,7 +237,7 @@ private fun CategoryCard(data: AnalysisData) {
             CategoryDonut(
                 slices = data.slices,
                 centerLabel = "总支出",
-                centerValue = formatAmount(data.totalCnyCents, "CNY ", 2),
+                centerValue = formatAmount(data.expenseCnyCents, "CNY ", 2),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(224.dp)

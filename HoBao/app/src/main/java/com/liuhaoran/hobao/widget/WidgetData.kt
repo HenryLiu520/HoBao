@@ -26,6 +26,8 @@ suspend fun loadWidgetSnapshot(context: Context): WidgetSnapshot {
     val today = LocalDate.now()
     val todayTotal = expenses
         .filter {
+            // 收入在另一张表（incomes），这里读不到；
+            // 退款是负数行，会自然抵扣掉
             Instant.ofEpochMilli(it.createdAt).atZone(ZoneId.systemDefault()).toLocalDate() == today
         }
         .sumOf { e ->

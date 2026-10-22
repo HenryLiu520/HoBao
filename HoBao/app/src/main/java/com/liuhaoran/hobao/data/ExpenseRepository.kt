@@ -6,14 +6,17 @@ import com.liuhaoran.hobao.data.backup.BackupCodec
 import com.liuhaoran.hobao.data.backup.BackupCurrency
 import com.liuhaoran.hobao.data.backup.BackupExpense
 import com.liuhaoran.hobao.data.backup.BackupFile
+import com.liuhaoran.hobao.data.backup.BackupIncome
 import com.liuhaoran.hobao.data.backup.ImportMode
 import com.liuhaoran.hobao.data.backup.ImportResult
 import com.liuhaoran.hobao.data.db.HoBaoDatabase
+import com.liuhaoran.hobao.data.db.entity.IncomeEntity
 import com.liuhaoran.hobao.data.db.entity.CategoryEntity
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
 import com.liuhaoran.hobao.data.db.entity.ExpenseEntity
 import com.liuhaoran.hobao.data.forex.ForexConfig
 import com.liuhaoran.hobao.data.forex.ForexRateTable
+import com.liuhaoran.hobao.util.toCnyMinor
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -27,11 +30,13 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
     private val expenseDao = db.expenseDao()
     private val categoryDao = db.categoryDao()
     private val currencyDao = db.currencyDao()
+    private val incomeDao = db.incomeDao()
 
     // ── 读：返回 Flow，数据一变界面自动刷新 ──
     fun observeExpenses(): Flow<List<ExpenseEntity>> = expenseDao.observeAll()
     fun observeCategories(): Flow<List<CategoryEntity>> = categoryDao.observeAll()
     fun observeCurrencies(): Flow<List<CurrencyEntity>> = currencyDao.observeAll()
+    fun observeIncomes(): Flow<List<IncomeEntity>> = incomeDao.observeAll()
 
     // ── 写 ──
     suspend fun addExpense(expense: ExpenseEntity) = expenseDao.insert(expense)
@@ -76,6 +81,12 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         }
     }
 
+    // ══════════════════════ 收入（独立账本） ══════════════════════
+
+    suspend fun addIncome(income: IncomeEntity) = incomeDao.insert(income)
+
+    suspend fun deleteIncome(income: IncomeEntity) = incomeDao.delete(income)
+
     // ══════════════════════ 分析 ══════════════════════
     //
     // 这三个方法故意只做转发、不加逻辑：聚合的**口径**在 SQL 里，
@@ -86,6 +97,7 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
     suspend fun analysisTotal(from: Long, to: Long) = expenseDao.analysisTotal(from, to)
 
     suspend fun dailySums(from: Long, to: Long) = expenseDao.dailySums(from, to)
+
 
     // ══════════════════════ 备份：导出 ══════════════════════
 
@@ -101,13 +113,14 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         val categories = categoryDao.getAll()
         val currencies = currencyDao.getAll()
         val expenses = expenseDao.getAll()
+        val incomes = incomeDao.getAll()
         val nameById = categories.associate { it.id to it.name }
 
         return BackupFile(
             formatVersion = BackupCodec.CURRENT_FORMAT_VERSION,
             exportedAt = System.currentTimeMillis(),
             appVersion = BackupCodec.APP_VERSION,
-            categories = categories.map { BackupCategory(it.name, it.sortOrder, it.isArchived) },
+            categories = categories.map { BackupCategory(it.name, it.sortOrder, it.isArchived, it.kind) },
             currencies = currencies.map {
                 BackupCurrency(
                     code = it.code,
@@ -129,6 +142,18 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
                     categoryName = name,
                     createdAt = e.createdAt,
                     updatedAt = e.updatedAt,
+                )
+            },
+            incomes = incomes.mapNotNull { i ->
+                val name = nameById[i.categoryId] ?: return@mapNotNull null
+                BackupIncome(
+                    amountMinor = i.amountMinor,
+                    currencyCode = i.currencyCode,
+                    ratePerCny = i.ratePerCny,
+                    reason = i.reason,
+                    categoryName = name,
+                    createdAt = i.createdAt,
+                    updatedAt = i.updatedAt,
                 )
             },
         )
@@ -184,7 +209,8 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         var newCategories = 0
 
         // 文件里的分类 + 账单引用的分类，都要保证存在
-        val neededNames = (file.categories.map { it.name } + file.expenses.map { it.categoryName })
+        val neededNames = (file.categories.map { it.name } +
+            file.expenses.map { it.categoryName } + file.incomes.map { it.categoryName })
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .distinct()
@@ -227,8 +253,25 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         }
         if (toInsert.isNotEmpty()) expenseDao.insertAll(toInsert)
 
+        // ④ 收入：同一套复合键去重（收入表里没有 id 稳定，所以按内容比）
+        val seenIncome = incomeDao.getAll().mapNotNull { i ->
+            val catName = idToName[i.categoryId] ?: return@mapNotNull null
+            dedupeKey(i.createdAt, i.amountMinor, i.currencyCode, catName, i.reason)
+        }.toHashSet()
+
+        val incomesToInsert = mutableListOf<IncomeEntity>()
+        file.incomes.forEach { b ->
+            val catName = b.categoryName.trim()
+            val catId = nameToId[catName] ?: return@forEach
+            val key = dedupeKey(b.createdAt, b.amountMinor, b.currencyCode, catName, b.reason)
+            if (key in seenIncome) return@forEach
+            seenIncome += key
+            incomesToInsert += b.toEntity(catId)
+        }
+        if (incomesToInsert.isNotEmpty()) incomeDao.insertAll(incomesToInsert)
+
         return ImportResult(
-            added = toInsert.size,
+            added = toInsert.size + incomesToInsert.size,
             skipped = skipped,
             newCategories = newCategories,
             newCurrencies = missingCurrencies.size,
@@ -245,6 +288,7 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
         val now = System.currentTimeMillis()
 
         expenseDao.deleteAll()
+        incomeDao.deleteAll()
         categoryDao.deleteAll()
         currencyDao.deleteAll()
 
@@ -270,12 +314,14 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
                 sortOrder = c.sortOrder,
                 isArchived = c.isArchived,
                 createdAt = now,
+                kind = c.kind,
             )
         }.toMutableList()
 
         // 文件里 categories 没列、但账单引用了的名字 → 补建，别把账丢了
         val listed = cats.map { it.name }.toHashSet()
-        file.expenses.map { it.categoryName.trim() }.distinct()
+        (file.expenses.map { it.categoryName } + file.incomes.map { it.categoryName })
+            .map { it.trim() }.distinct()
             .filter { it.isNotEmpty() && it !in listed }
             .forEach { name ->
                 cats += CategoryEntity(
@@ -295,6 +341,12 @@ class ExpenseRepository(private val db: HoBaoDatabase) {
             b.toEntity(id)
         }
         if (exps.isNotEmpty()) expenseDao.insertAll(exps)
+
+        val incs = file.incomes.mapNotNull { b ->
+            val id = nameToId[b.categoryName.trim()] ?: return@mapNotNull null
+            b.toEntity(id)
+        }
+        if (incs.isNotEmpty()) incomeDao.insertAll(incs)
 
         return ImportResult(
             added = exps.size,
@@ -358,6 +410,16 @@ private fun BackupCurrency.toEntity(sortOrder: Int) = CurrencyEntity(
 )
 
 private fun BackupExpense.toEntity(categoryId: Long) = ExpenseEntity(
+    amountMinor = amountMinor,
+    currencyCode = currencyCode,
+    ratePerCny = ratePerCny,
+    reason = reason,
+    categoryId = categoryId,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+)
+
+private fun BackupIncome.toEntity(categoryId: Long) = IncomeEntity(
     amountMinor = amountMinor,
     currencyCode = currencyCode,
     ratePerCny = ratePerCny,

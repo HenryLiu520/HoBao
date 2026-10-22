@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
+import com.liuhaoran.hobao.data.db.entity.CategoryEntity
 import com.liuhaoran.hobao.ui.theme.HoBaoTheme
 import com.liuhaoran.hobao.util.parseAmountToMinor
 import com.liuhaoran.hobao.viewmodel.ExpenseViewModel
@@ -205,7 +206,7 @@ private fun QuickAddDialog(onDismiss: () -> Unit) {
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    vm.activeCategories.forEach { c ->
+                    vm.categoriesOf(CategoryEntity.KIND_SPENDING).forEach { c ->
                         FilterChipLite(
                             label = c.name,
                             selected = c.id == categoryId,

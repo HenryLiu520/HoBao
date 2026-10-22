@@ -1,5 +1,6 @@
 package com.liuhaoran.hobao.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -29,6 +30,16 @@ data class CategoryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
 
+    /**
+     * 0 = 支出类，1 = 收入类。
+     *
+     * 【为什么分类也要分家】
+     * 「工资」「红包」塞进「餐饮」里毫无意义。支出和收入是两套分类体系，
+     * 记账页按当前是支出还是收入，只显示对应的那几个。
+     */
+    @ColumnInfo(defaultValue = "0")
+    val kind: Int = 0,
+
     /** 显示名，如「餐饮」 */
     val name: String,
 
@@ -46,4 +57,11 @@ data class CategoryEntity(
     val isArchived: Boolean = false,
 
     val createdAt: Long,
-)
+) {
+    companion object {
+        /** 花销账本用的分类（支出、退款、返现共用一套） */
+        const val KIND_SPENDING = 0
+        /** 收入账本用的分类（工资、奖金、存款…） */
+        const val KIND_INCOME = 1
+    }
+}

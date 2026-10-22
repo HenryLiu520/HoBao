@@ -18,6 +18,7 @@ import com.liuhaoran.hobao.data.db.HoBaoDatabase
 import com.liuhaoran.hobao.data.db.entity.CategoryEntity
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
 import com.liuhaoran.hobao.data.db.entity.ExpenseEntity
+import com.liuhaoran.hobao.data.db.entity.IncomeEntity
 import com.liuhaoran.hobao.model.SortOrder
 import com.liuhaoran.hobao.model.TimeFilter
 import com.liuhaoran.hobao.model.toEpochMillisLocal
@@ -61,12 +62,35 @@ data class ExpenseItem(
      */
     val cnyCents: Long
         get() = toCnyMinor(expense.amountMinor, currency.minorUnits, expense.ratePerCny)
+
+    /**
+     * 退款行：`amountMinor` 是负数，`cnyCents` 也就是负数。
+     *
+     * 【为什么不再有 netCnyCents】
+     * 退款已经是一条独立的负数账，它自己就是"那个减项"。
+     * 不存在"某一行的净额"了 —— 净额是**区间级**的概念：
+     * 支出合计 + 退款合计。
+     */
+    val isRefund: Boolean get() = expense.isRefund
+}
+
+/** 一条收入的展示模型（收入账本，和花销完全分开） */
+data class IncomeItem(
+    val income: IncomeEntity,
+    val category: CategoryEntity,
+    val currency: CurrencyEntity,
+) {
+    val cnyCents: Long
+        get() = toCnyMinor(income.amountMinor, currency.minorUnits, income.ratePerCny)
 }
 
 /** 按月分组：月份标签 + 该月小计（人民币分） + 该月的条目 */
 data class MonthGroup(
     val label: String,
+    /** 支出合计（正数行），恒 ≥ 0 */
     val subtotalCnyCents: Long,
+    /** 退款合计（负数行），恒 ≤ 0。没有退款时是 0 */
+    val refundCnyCents: Long,
     val items: List<ExpenseItem>,
 )
 
@@ -116,6 +140,8 @@ class ExpenseViewModel(
 
     // ── 从数据库流过来的数据 ──
     private var allExpenses by mutableStateOf<List<ExpenseEntity>>(emptyList())
+    /** 收入账本（独立表）—— 和花销完全分开，不参与任何"支出"统计 */
+    private var allIncomes by mutableStateOf<List<IncomeEntity>>(emptyList())
     private var allCategories by mutableStateOf<List<CategoryEntity>>(emptyList())
     private var allCurrencies by mutableStateOf<List<CurrencyEntity>>(emptyList())
 
@@ -130,6 +156,9 @@ class ExpenseViewModel(
                 allExpenses = it
                 refreshAnalysis()
             }
+        }
+        viewModelScope.launch {
+            repo.observeIncomes().collect { allIncomes = it }
         }
         viewModelScope.launch {
             repo.observeCategories().collect {
@@ -261,7 +290,8 @@ class ExpenseViewModel(
             val daily = repo.dailySums(range.from, range.toExclusive)
 
             val days = daysIn(range)
-            val totalCents = total.cnyCents
+            // 占比的分母只用**支出合计**（恒 ≥ 0）。退款不进饼图 —— 负的扇区画不出来
+            val totalCents = total.expenseCnyCents
             val categoriesById = allCategories.associateBy { it.id }
 
             val slices = sums.map { row ->
@@ -280,7 +310,10 @@ class ExpenseViewModel(
 
             analysis = AnalysisData(
                 rangeLabel = analysisFilter.label,
-                totalCnyCents = totalCents,
+                expenseCnyCents = total.expenseCnyCents,
+                refundCnyCents = total.refundCnyCents,
+                netCnyCents = total.expenseCnyCents + total.refundCnyCents,
+                incomeCnyCents = incomeTotalIn(range),
                 count = total.cnt,
                 days = days,
                 avgPerDayCents =
@@ -513,6 +546,45 @@ class ExpenseViewModel(
         }
     }
 
+    /**
+     * 记一笔收入（写进独立的 incomes 表）。
+     *
+     * 【和退款的区别】
+     * 退款是「钱退回来了」—— 它是花销账本里的一条负数行。
+     * 收入是「钱变多了」—— 它是另一本账，不影响任何"花了多少"的统计。
+     */
+    fun addIncome(
+        amountMinor: Long,
+        reason: String,
+        categoryId: Long,
+        createdAt: Long = System.currentTimeMillis(),
+        onSaved: (() -> Unit)? = null,
+    ) {
+        val cur = entryCurrency ?: return
+        if (cur.ratePerCny <= 0.0 || amountMinor <= 0) return
+        val categoryName = allCategories.firstOrNull { it.id == categoryId }?.name
+        val finalReason = reason.trim().ifEmpty { categoryName ?: "收入" }
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            repo.addIncome(
+                IncomeEntity(
+                    amountMinor = amountMinor,
+                    currencyCode = cur.code,
+                    ratePerCny = cur.ratePerCny,
+                    reason = finalReason,
+                    categoryId = categoryId,
+                    createdAt = createdAt,
+                    updatedAt = now,
+                )
+            )
+            onSaved?.invoke()
+        }
+    }
+
+    fun deleteIncome(income: IncomeEntity) {
+        viewModelScope.launch { repo.deleteIncome(income) }
+    }
+
     fun deleteExpense(expense: ExpenseEntity) {
         viewModelScope.launch {
             repo.deleteExpense(expense)
@@ -541,8 +613,22 @@ class ExpenseViewModel(
 
     // ── 派生数据 ──
 
+    /** 所有未归档的分类 —— 回顾页的筛选器要**两种都列**（你可能想筛「工资」） */
     val activeCategories: List<CategoryEntity>
         get() = allCategories.filter { !it.isArchived }
+
+    /**
+     * 记账页用：只列当前是支出还是收入那一套分类。
+     *
+     * 【为什么必须分开】
+     * 「工资」出现在支出分类里、「餐饮」出现在收入分类里，都是荒谬的。
+     * 更麻烦的是落库后口径混乱 —— 一笔支出挂在收入分类下，分类占比会算错。
+     */
+    fun categoriesOf(kind: Int): List<CategoryEntity> =
+        allCategories.filter { !it.isArchived && it.kind == kind }
+
+    /** 花销账本里的分类（支出 + 退款 + 返现都在里面，它们共用一套） */
+    val spendingCategories: List<CategoryEntity> get() = categoriesOf(CategoryEntity.KIND_SPENDING)
 
     /** 全部币种（设置页 / 汇率页要看全部） */
     val currencies: List<CurrencyEntity> get() = allCurrencies
@@ -620,13 +706,59 @@ class ExpenseViewModel(
             }
         }
 
-    /** 「记一笔」页顶部：本月小计（人民币分） */
+    private fun inThisMonth(ms: Long) = TimeFilter.ThisMonth.contains(ms)
+
+    /** 本月**支出**合计（只算正数行），恒 ≥ 0 */
     val thisMonthCnyCents: Long
-        get() = allItems.filter { TimeFilter.ThisMonth.contains(it.expense.createdAt) }
+        get() = allItems
+            .filter { !it.isRefund && inThisMonth(it.expense.createdAt) }
             .sumOf { it.cnyCents }
 
+    /** 本月**退款**合计（只算负数行），恒 ≤ 0 */
+    val thisMonthRefundCnyCents: Long
+        get() = allItems
+            .filter { it.isRefund && inThisMonth(it.expense.createdAt) }
+            .sumOf { it.cnyCents }
+
+    /** 本月净额 = 支出 + 退款。可能为负 */
+    val thisMonthNetCnyCents: Long get() = thisMonthCnyCents + thisMonthRefundCnyCents
+
     val thisMonthCount: Int
-        get() = allItems.count { TimeFilter.ThisMonth.contains(it.expense.createdAt) }
+        get() = allItems.count { !it.isRefund && inThisMonth(it.expense.createdAt) }
+
+    /** 本月收入合计（另一本账）。只显示，不参与任何"支出"口径 */
+    val thisMonthIncomeCnyCents: Long
+        get() = incomesIn(TimeFilter.ThisMonth.toMillisRange())
+
+    /** 区间内的收入合计（人民币分） */
+    private fun incomesIn(range: MillisRange): Long {
+        val curs = allCurrencies.associateBy { it.code }
+        return allIncomes
+            .filter { it.createdAt >= range.from && it.createdAt < range.toExclusive }
+            .sumOf { inc ->
+                val c = curs[inc.currencyCode] ?: return@sumOf 0L
+                toCnyMinor(inc.amountMinor, c.minorUnits, inc.ratePerCny)
+            }
+    }
+
+    private fun incomeTotalIn(range: MillisRange): Long = incomesIn(range)
+
+    /** 收入列表（回顾页切到「收入」账本时用） */
+    val visibleIncomes: List<IncomeItem>
+        get() {
+            val cats = categoryById
+            val curs = currencyByCode
+            val q = query.trim()
+            return allIncomes
+                .filter { timeFilter.contains(it.createdAt) }
+                .filter { q.isEmpty() || it.reason.contains(q, ignoreCase = true) }
+                .mapNotNull { inc ->
+                    val c = cats[inc.categoryId] ?: return@mapNotNull null
+                    val u = curs[inc.currencyCode] ?: return@mapNotNull null
+                    IncomeItem(inc, c, u)
+                }
+                .sortedByDescending { it.income.createdAt }
+        }
 
     /** 「记一笔」页底部：最近 3 笔 */
     val recentItems: List<ExpenseItem>
@@ -639,7 +771,10 @@ class ExpenseViewModel(
             .map { (ym, items) ->
                 MonthGroup(
                     label = "${ym.year}年${ym.monthValue}月",
-                    subtotalCnyCents = items.sumOf { it.cnyCents },
+                    // 两个数：支出（正数行）+ 退款（负数行）。
+                    // 只给一个"净额"的话，看了不知道是花了多少还是退了多少
+                    subtotalCnyCents = items.filter { !it.isRefund }.sumOf { it.cnyCents },
+                    refundCnyCents = items.filter { it.isRefund }.sumOf { it.cnyCents },
                     items = items,
                 )
             }

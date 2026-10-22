@@ -57,7 +57,9 @@ fun formatAmount(amountMinor: Long, prefix: String, minorUnits: Int): String {
     val unit = pow10(minorUnits)
     val whole = absValue / unit
     val grouped = whole.toString().reversed().chunked(3).joinToString(",").reversed()
-    val head = (if (negative) "-" else "") + prefix + grouped
+    // 负号放在**数字**前面，不是放在货币代码前面：
+    // 规范是「ISO 代码 + 空格 + 数字」，所以是 "CNY -20.00"，不是 "-CNY 20.00"
+    val head = prefix + (if (negative) "-" else "") + grouped
     if (minorUnits == 0) return head
     return head + "." + (absValue % unit).toString().padStart(minorUnits, '0')
 }

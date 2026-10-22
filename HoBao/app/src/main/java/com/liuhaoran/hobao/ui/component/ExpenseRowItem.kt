@@ -23,7 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.liuhaoran.hobao.R
 import com.liuhaoran.hobao.data.db.entity.CurrencyEntity
 import com.liuhaoran.hobao.util.cnyMinorToMinor
 import com.liuhaoran.hobao.util.formatMoney
@@ -47,7 +50,13 @@ fun ExpenseRowItem(
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // 退款行：金额是负数。列表里必须一眼分得出来，
+    // 否则扫一眼账目会以为那是个正数支出。
+    val isRefund = item.isRefund
+    val refundColor = if (isSystemInDarkTheme()) Color(0xFFC9A7FF) else Color(0xFF6B3FA0)
     val rate = if (reportCurrency.ratePerCny > 0.0) reportCurrency.ratePerCny else 1.0
+    // 退款行的 cnyCents 是负数，直接把符号交给 formatMoney ——
+    // 负号属于数字，不属于货币代码：统一成 "CNY -20.00"，不要手工拼 "−CNY 20.00"
     val mainMinor = cnyMinorToMinor(item.cnyCents, reportCurrency.minorUnits, rate)
     val showOriginal = item.expense.currencyCode != reportCurrency.code
 
@@ -93,6 +102,7 @@ fun ExpenseRowItem(
             ) {
                 Text(
                     text = formatMoney(mainMinor, reportCurrency),
+                    color = if (isRefund) refundColor else Color.Unspecified,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.End,
