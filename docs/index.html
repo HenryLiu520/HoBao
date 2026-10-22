@@ -81,6 +81,19 @@
   }
   .chip[aria-pressed="true"]{background:var(--chip-bg);border-color:transparent}
 
+  /* 三段切换：支出 / 退款 / 收入。三种款项用三种底色，扫一眼就知道在记什么 */
+  .seg{display:flex;gap:8px;margin-top:14px}
+  .seg .chip{flex:1;padding:10px 0;text-align:center}
+  #segRefund[aria-pressed="true"]{background:#EADCF0;border-color:transparent}
+  #segIncome[aria-pressed="true"]{background:#DAEDE2;border-color:transparent}
+
+  /* 回顾页两个账本 */
+  .ledger{display:flex;gap:8px;margin-top:12px}
+
+  /* 金额的颜色：退款紫、收入绿。退款是**负数**，颜色和符号双重提示 */
+  .item .amt .main.refund{color:#6B3FA0}
+  .item .amt .main.income{color:#1B6C4A}
+
   .btn{
     width:100%;height:56px;border:0;border-radius:28px;background:var(--primary);color:var(--on-primary);
     font-size:16px;font-family:inherit;cursor:pointer;margin-top:14px;
@@ -208,8 +221,16 @@
         <div>
           <div class="label">本月支出</div>
           <div class="big" id="monthTotal">CNY 0.00</div>
-          <div class="sub" id="monthSub">共 0 笔 · 按今日汇率折算</div>
+          <div class="sub" id="monthSub">共 0 笔 · 按记账时汇率折算</div>
+          <div class="sub" id="monthRefund" hidden style="margin-top:2px"></div>
+          <div class="sub" id="monthIncome" hidden style="margin-top:2px"></div>
         </div>
+      </div>
+
+      <div class="seg" id="seg">
+        <button class="chip" id="segSpend"  aria-pressed="true">− 支出</button>
+        <button class="chip" id="segRefund" aria-pressed="false">↩ 退款</button>
+        <button class="chip" id="segIncome" aria-pressed="false">+ 收入</button>
       </div>
 
       <div class="gap14"></div>
@@ -273,10 +294,18 @@
         <button id="clearFilter">清除</button>
       </div>
 
+      <div class="ledger">
+        <button class="chip" id="ledSpend"  aria-pressed="true">花销</button>
+        <button class="chip" id="ledIncome" aria-pressed="false">收入</button>
+      </div>
+
       <div class="totalcard">
         <div>
-          <div class="label">合计支出</div>
+          <div class="label" id="histTotalLabel">支出合计</div>
           <div class="big" id="histTotal">CNY 0.00</div>
+          <!-- 三个数：支出 ≥0、退款 ≤0、净额可正可负。
+               绝不让「支出」变成负数 —— 那是「花了 -20 元」，没有意义。 -->
+          <div class="sub" id="histRefund" hidden style="margin-top:2px"></div>
         </div>
         <div class="count" id="histCount">0 笔</div>
       </div>
@@ -295,6 +324,8 @@
           <div class="label" id="anRangeLabel">本月 · 共 0 天</div>
           <div class="big" id="anTotal">CNY 0.00</div>
           <div class="sub" id="anSub">0 笔 · 日均 CNY 0.00</div>
+          <div class="sub" id="anRefund" hidden style="margin-top:2px"></div>
+          <div class="sub" id="anIncome" hidden style="margin-top:2px"></div>
         </div>
       </div>
 
@@ -360,17 +391,28 @@ const MINOR = { CNY:2, HKD:2, JPY:0, USD:2, EUR:2, GBP:2 };
 const NAME  = { CNY:"人民币", HKD:"港币", JPY:"日元", USD:"美元", EUR:"欧元", GBP:"英镑" };
 const FLAG  = { CNY:"🇨🇳", HKD:"🇭🇰", JPY:"🇯🇵", USD:"🇺🇸", EUR:"🇪🇺", GBP:"🇬🇧" };
 const ORDER = ["CNY","HKD","JPY","USD","EUR","GBP"];
+/* 花销账本的分类。退款/返现排在最后 —— 它们记的是**负数**，
+   和普通花销同住一张表，靠符号区分。 */
 const CATS = [
   { n:"餐饮", c:"#E8760B" }, { n:"交通", c:"#00696E" }, { n:"购物", c:"#B3261E" },
   { n:"住宿", c:"#6750A4" }, { n:"学习", c:"#2E6C3F" }, { n:"娱乐", c:"#8A5182" },
   { n:"其他", c:"#6B6B6B" },
+  { n:"退款", c:"#8A5182" }, { n:"返现", c:"#2E6C3F" },
 ];
-const KEY = "hobao-demo-v1";
+/* 收入账本是**另一张表**，分类也自成一套。 */
+const CATS_IN = [
+  { n:"工资", c:"#0F7B6C" }, { n:"奖金", c:"#B8860B" }, { n:"红包", c:"#B3261E" },
+  { n:"利息", c:"#1565C0" }, { n:"其他收入", c:"#6B6B6B" },
+];
+const KEY = "hobao-demo-v2";
 
 const state = {
-  expenses: [],
+  expenses: [],          // 花销账本：花销为正，退款为负
+  incomes: [],           // 收入账本：独立一张表
   entryCurrency: "CNY",
   entryCategory: "餐饮",
+  entryMode: "spend",    // spend | refund | income
+  ledger: "spend",       // 回顾页在看哪一本
   filterCategory: null,
   query: "",
 };
@@ -379,7 +421,12 @@ const state = {
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { state.expenses = JSON.parse(raw) || []; return; }
+    if (raw) {
+      const d = JSON.parse(raw) || {};
+      state.expenses = Array.isArray(d.expenses) ? d.expenses : [];
+      state.incomes = Array.isArray(d.incomes) ? d.incomes : [];
+      return;
+    }
   } catch (e) { /* 存储坏了就当空的 */ }
   // 第一次来：塞一批样例，不然一进来空荡荡看不出东西。
   // 特意跨了大半个月 + 跨月，这样「分析」页的按日/按周/按月才有东西可看。
@@ -401,23 +448,38 @@ function load() {
     { id: 8,  amountMinor: 3000,  code: "CNY", rate: 1,    reason: "课本",   cat: "学习", at: ago(19, 15, 0) },
     { id: 9,  amountMinor: 15000, code: "CNY", rate: 1,    reason: "聚餐",   cat: "餐饮", at: ago(35, 19, 0) },
     { id: 10, amountMinor: 8000,  code: "CNY", rate: 1,    reason: "房费",   cat: "住宿", at: ago(52, 11, 0) },
+    // 退款是**负数行**：耳机退了 20，净花 109.90。
+    // 它有自己的日期（退款那天），不是回头改原账。
+    { id: 11, amountMinor: -2000, code: "CNY", rate: 1,    reason: "耳机退货", cat: "退款", at: ago(4, 15, 20) },
+  ];
+  // 收入账本：另一张表
+  state.incomes = [
+    { id: 101, amountMinor: 500000, code: "CNY", rate: 1, reason: "10 月工资", cat: "工资", at: ago(10, 9, 30) },
+    { id: 102, amountMinor: 20000,  code: "CNY", rate: 1, reason: "长辈红包", cat: "红包", at: ago(6, 20, 0) },
   ];
   save();
 }
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state.expenses)); } catch (e) {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ expenses: state.expenses, incomes: state.incomes }));
+  } catch (e) {}
 }
 
 /* ══════════ 换算与格式化 ══════════ */
 function toCnyMinor(amountMinor, code, rate) {
   return Math.round(amountMinor * 100 / (Math.pow(10, MINOR[code]) * rate));
 }
+/* 一叠账折成人民币分。退款是负数行，所以直接相加就是净额 —— 不用另算 */
+function sumCny(list) {
+  return list.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0);
+}
 function fmt(minor, code) {
   const mu = MINOR[code], neg = minor < 0, abs = Math.abs(minor);
   const unit = Math.pow(10, mu);
   const whole = Math.floor(abs / unit).toLocaleString("en-US");
   const frac = mu ? "." + String(abs % unit).padStart(mu, "0") : "";
-  return (neg ? "-" : "") + code + " " + whole + frac;
+  // 负号属于**数字**，不属于货币代码：CNY -20.00，不是 -CNY 20.00（和真机一致）
+  return code + " " + (neg ? "-" : "") + whole + frac;
 }
 function parseAmount(s, mu) {
   s = String(s).trim().replace(/,/g, "");
@@ -441,13 +503,19 @@ function timeLabel(ms) {
   return (d.getMonth() + 1) + "月" + d.getDate() + "日 " +
          String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
-function catColor(name) {
-  const c = CATS.find(x => x.n === name);
+function catColor(name, income) {
+  const c = (income ? CATS_IN : CATS).find(x => x.n === name) ||
+            CATS_IN.find(x => x.n === name) || CATS.find(x => x.n === name);
   return c ? c.c : "#6B6B6B";
 }
 
 /* ══════════ 记一笔 ══════════ */
 const $ = id => document.getElementById(id);
+
+/* 当前模式下该显示哪一套分类 */
+function catsFor(mode) {
+  return mode === "income" ? CATS_IN : CATS;
+}
 
 function renderEntry() {
   const now = new Date();
@@ -455,13 +523,33 @@ function renderEntry() {
     const d = new Date(e.at);
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
-  $("monthTotal").textContent = fmt(cny.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0), "CNY");
-  $("monthSub").textContent = "共 " + cny.length + " 笔 · 按记账时汇率折算";
+  const expense = sumCny(cny.filter(e => e.amountMinor > 0));
+  const refund = sumCny(cny.filter(e => e.amountMinor < 0));
+  const spentCount = cny.filter(e => e.amountMinor > 0).length;
+
+  $("monthTotal").textContent = fmt(expense, "CNY");
+  $("monthSub").textContent = "共 " + spentCount + " 笔 · 按记账时汇率折算";
+  $("monthRefund").hidden = refund === 0;
+  $("monthRefund").textContent = "退款 " + fmt(refund, "CNY") + " · 净 " + fmt(expense + refund, "CNY");
+
+  const inc = sumCny(state.incomes.filter(e => {
+    const d = new Date(e.at);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }));
+  $("monthIncome").hidden = inc === 0;
+  $("monthIncome").textContent = "本月收入 " + fmt(inc, "CNY");
+
+  // 三段切换
+  $("segSpend").setAttribute("aria-pressed", String(state.entryMode === "spend"));
+  $("segRefund").setAttribute("aria-pressed", String(state.entryMode === "refund"));
+  $("segIncome").setAttribute("aria-pressed", String(state.entryMode === "income"));
+  $("saveBtn").textContent = state.entryMode === "income" ? "记一笔收入" : "记一笔";
 
   $("currencyVal").textContent = state.entryCurrency;
 
-  // 分类 chips
-  $("catChips").innerHTML = CATS.map(c =>
+  // 分类 chips（跟着模式换一套）
+  const list = catsFor(state.entryMode);
+  $("catChips").innerHTML = list.map(c =>
     `<button class="chip" data-cat="${c.n}" aria-pressed="${c.n === state.entryCategory}">${c.n}</button>`
   ).join("");
   $("catChips").querySelectorAll(".chip").forEach(b => {
@@ -477,10 +565,13 @@ function renderEntry() {
   $("amountMsg").textContent = bad ? "格式不对" : "";
   $("saveBtn").disabled = !(amount !== null && amount > 0);
 
-  // 最近 3 笔
-  const recent = [...state.expenses].sort((a, b) => b.at - a.at).slice(0, 3);
+  // 最近 3 笔：跟着当前模式走。
+  // 记收入时列花销的话，用户刚记的那笔会"消失"，看着像没存上。
+  const isIncome = state.entryMode === "income";
+  const recent = [...(isIncome ? state.incomes : state.expenses)]
+    .sort((a, b) => b.at - a.at).slice(0, 3);
   $("recentTitle").hidden = recent.length === 0;
-  $("recentList").innerHTML = recent.map(rowHtml).join("");
+  $("recentList").innerHTML = recent.map(isIncome ? incomeRowHtml : rowHtml).join("");
 }
 
 function rowHtml(e) {
@@ -493,7 +584,24 @@ function rowHtml(e) {
       <div class="meta">${esc(e.cat)} · ${timeLabel(e.at)}</div>
     </div>
     <div class="amt">
-      <div class="main">${fmt(cny, "CNY")}</div>
+      <div class="main${cny < 0 ? " refund" : ""}">${fmt(cny, "CNY")}</div>
+      ${same ? "" : `<div class="orig">${fmt(e.amountMinor, e.code)}</div>`}
+    </div>
+  </div>`;
+}
+
+/* 收入行：绿色 + 加号。和花销行看着像，但走的是另一本账 */
+function incomeRowHtml(e) {
+  const cny = toCnyMinor(e.amountMinor, e.code, e.rate);
+  const same = e.code === "CNY";
+  return `<div class="item">
+    <div class="dot" style="background:${catColor(e.cat, true)}"></div>
+    <div class="mid">
+      <div class="reason">${esc(e.reason)}</div>
+      <div class="meta">${esc(e.cat)} · ${timeLabel(e.at)}</div>
+    </div>
+    <div class="amt">
+      <div class="main income">+${fmt(cny, "CNY")}</div>
       ${same ? "" : `<div class="orig">${fmt(e.amountMinor, e.code)}</div>`}
     </div>
   </div>`;
@@ -511,10 +619,46 @@ function visible() {
     .sort((a, b) => b.at - a.at);
 }
 
+/* 收入账本的筛选：只有关键词，没有分类面板 —— 它本来就是另一本账 */
+function visibleIncome() {
+  const q = state.query.trim().toLowerCase();
+  return state.incomes
+    .filter(e => !q || e.reason.toLowerCase().includes(q))
+    .sort((a, b) => b.at - a.at);
+}
+
 function renderHistory() {
+  const spendMode = state.ledger === "spend";
+  $("ledSpend").setAttribute("aria-pressed", String(spendMode));
+  $("ledIncome").setAttribute("aria-pressed", String(!spendMode));
+  $("histTotalLabel").textContent = spendMode ? "支出合计" : "收入合计";
+  // 分类筛选面板只对花销账本有意义
+  $("funnel").style.display = spendMode ? "" : "none";
+
+  if (!spendMode) {
+    const inc = visibleIncome();
+    $("histTotal").textContent = fmt(sumCny(inc), "CNY");
+    $("histCount").textContent = inc.length + " 笔";
+    $("histRefund").hidden = true;
+    $("filterSum").hidden = true;
+    $("histTitle").hidden = inc.length === 0;
+    $("histTitle").textContent = state.query.trim() ? "筛选结果" : "全部收入";
+    $("histList").innerHTML = inc.length
+      ? inc.map(incomeRowHtml).join("")
+      : `<div class="empty">${state.incomes.length === 0 ? "还没有收入" : "没有匹配的收入"}</div>`;
+    return;
+  }
+
   const list = visible();
-  $("histTotal").textContent = fmt(list.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0), "CNY");
-  $("histCount").textContent = list.length + " 笔";
+  const expense = sumCny(list.filter(e => e.amountMinor > 0));
+  const refund = sumCny(list.filter(e => e.amountMinor < 0));
+  const spentCount = list.filter(e => e.amountMinor > 0).length;
+
+  // 【三个数】支出恒 ≥0；退款单独一行；净额才可能是负的
+  $("histTotal").textContent = fmt(expense, "CNY");
+  $("histCount").textContent = spentCount + " 笔";
+  $("histRefund").hidden = refund === 0;
+  $("histRefund").textContent = "退款 " + fmt(refund, "CNY") + " · 净 " + fmt(expense + refund, "CNY");
 
   const on = state.filterCategory !== null;
   $("filterSum").hidden = !on;
@@ -713,10 +857,16 @@ function renderTrend(buckets, g) {
   const W = n <= 14 ? box : Math.round(padL + n * per + padR);
   const plotW = W - padL - padR, plotH = H - padT - padB;
 
+  // 趋势画的是**净额**，可能跌破 0（那天只退了钱、没花）。
+  // 所以纵轴下端要能容纳负数 —— 否则负值会被压到坐标轴外面，看起来像"没有数据"。
   const maxCny = Math.max(0, ...buckets.map(b => b.v)) / 100;
+  const minCny = Math.min(0, ...buckets.map(b => b.v)) / 100;
   const maxY = niceMax(maxCny);
+  const minY = minCny < 0 ? -niceMax(-minCny) : 0;
+  const span = (maxY - minY) || 1;
   const xAt = i => n === 1 ? padL + plotW / 2 : padL + i * plotW / (n - 1);
-  const yAt = v => padT + plotH - (v / 100 / maxY) * plotH;
+  const yAt = v => padT + plotH - ((v / 100 - minY) / span) * plotH;
+  const yZero = yAt(0);
 
   let out = "", yOut = "";
   // 网格画在主图里（跟着滚），刻度画在冻结层里（不跟着滚）
@@ -725,8 +875,14 @@ function renderTrend(buckets, g) {
     out += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y +
            '" stroke="#D8D4E0" stroke-width="1" stroke-dasharray="4 4"/>';
     yOut += '<text x="' + (padL - 8) + '" y="' + (y + 4) +
-            '" font-size="10.5" fill="#63606A" text-anchor="end">' + Math.round(maxY * f) + '</text>';
+            '" font-size="10.5" fill="#63606A" text-anchor="end">' +
+            Math.round(minY + f * span) + '</text>';
   });
+  // 有负数时，把 0 线单独画实
+  if (minY < 0) {
+    out += '<line x1="' + padL + '" y1="' + yZero + '" x2="' + (W - padR) + '" y2="' + yZero +
+           '" stroke="#9A93A8" stroke-width="1.4"/>';
+  }
   const ya = $("yaxis");
   ya.setAttribute("width", padL);
   ya.setAttribute("height", H);
@@ -734,9 +890,9 @@ function renderTrend(buckets, g) {
   ya.innerHTML = yOut;
   // 面积
   if (n > 1) {
-    let area = "M " + xAt(0) + " " + (padT + plotH);
+    let area = "M " + xAt(0) + " " + yZero;
     buckets.forEach((b, i) => { area += " L " + xAt(i) + " " + yAt(b.v); });
-    area += " L " + xAt(n - 1) + " " + (padT + plotH) + " Z";
+    area += " L " + xAt(n - 1) + " " + yZero + " Z";
     out += '<path d="' + area + '" fill="' + AN_ACCENT + '" opacity="0.16"/>';
     // 折线
     let line = "";
@@ -773,34 +929,45 @@ function renderAnalysis() {
   const days = Math.max(1, Math.round((endEx - start) / 86400000));
   const a = start.getTime(), b = endEx.getTime();
   const inRange = state.expenses.filter(e => e.at >= a && e.at < b);
-  const total = inRange.reduce((s, e) => s + toCnyMinor(e.amountMinor, e.code, e.rate), 0);
+  // 【三个数】分析页的「总支出」只算正数行 —— 日均的分母是它，
+  // 让它变成负数就会出现「日均 -0.67 元」这种没法读的东西。
+  const spendRows = inRange.filter(e => e.amountMinor > 0);
+  const expense = sumCny(spendRows);
+  const refund = sumCny(inRange.filter(e => e.amountMinor < 0));
+  const net = expense + refund;
+  const income = sumCny(state.incomes.filter(e => e.at >= a && e.at < b));
 
   const label = (AN_RANGES.find(r => r.k === state.analysisRange) || AN_RANGES[1]).t;
   $("anRangeLabel").textContent = label + " · 共 " + days + " 天";
-  $("anTotal").textContent = fmt(total, "CNY");
-  $("anSub").textContent = inRange.length + " 笔 · 日均 " + fmt(Math.round(total / days), "CNY");
+  $("anTotal").textContent = fmt(expense, "CNY");
+  $("anSub").textContent = spendRows.length + " 笔 · 日均 " + fmt(Math.round(expense / days), "CNY");
+  $("anRefund").hidden = refund === 0;
+  $("anRefund").textContent = "退款 " + fmt(refund, "CNY") + " · 净 " + fmt(net, "CNY");
+  $("anIncome").hidden = income === 0;
+  $("anIncome").textContent = "同区间收入 " + fmt(income, "CNY");
 
-  // 分类占比
+  // 分类占比：只用**正数行**。退款是负的，放进饼图会画出负扇区
   const byCat = new Map();
-  inRange.forEach(e => {
+  spendRows.forEach(e => {
     byCat.set(e.cat, (byCat.get(e.cat) || 0) + toCnyMinor(e.amountMinor, e.code, e.rate));
   });
   const slices = [...byCat.entries()]
-    .map(([name, v]) => ({ name, v, f: total > 0 ? v / total : 0, color: catColor(name) }))
+    .map(([name, v]) => ({ name, v, f: expense > 0 ? v / expense : 0, color: catColor(name) }))
     .sort((x, y) => y.v - x.v);
 
   if (slices.length) {
-    renderDonut(slices, total);
+    renderDonut(slices, expense);
     $("catList").innerHTML = slices.map(s =>
       '<div class="an-row"><span class="dot" style="background:' + s.color + '"></span>' +
       '<span class="nm">' + esc(s.name) + '</span>' +
       '<span><div class="amt">' + fmt(s.v, "CNY") + '</div>' +
       '<div class="pct">' + (s.f * 100).toFixed(1) + '% · ' +
-      inRange.filter(e => e.cat === s.name).length + ' 笔</div></span></div>'
+      spendRows.filter(e => e.cat === s.name).length + ' 笔</div></span></div>'
     ).join("");
   } else {
     renderDonut([], 0);
-    $("catList").innerHTML = '<div class="empty">这段时间还没有账单</div>';
+    $("catList").innerHTML = '<div class="empty">' +
+      (refund !== 0 ? '这段时间没有支出，只有退款' : '这段时间还没有账单') + '</div>';
   }
 
   // 趋势
@@ -848,6 +1015,22 @@ function switchTab(which) {
 $("tabAdd").onclick = () => switchTab("add");
 $("tabHist").onclick = () => switchTab("history");
 $("tabAna").onclick = () => switchTab("analysis");
+/* 切模式：分类跟着换一套，退款默认选中「退款」——
+   它排在芯片最右边，不预选的话用户得横向滑到尽头才找得到 */
+function setEntryMode(m) {
+  if (state.entryMode === m) return;
+  state.entryMode = m;
+  state.entryCategory = m === "refund" ? "退款" : catsFor(m)[0].n;
+  renderEntry();
+}
+$("segSpend").onclick  = () => setEntryMode("spend");
+$("segRefund").onclick = () => setEntryMode("refund");
+$("segIncome").onclick = () => setEntryMode("income");
+
+/* 回顾页两个账本 */
+$("ledSpend").onclick  = () => { state.ledger = "spend";  renderHistory(); };
+$("ledIncome").onclick = () => { state.ledger = "income"; renderHistory(); };
+
 $("currencyBtn").onclick = openCurrencySheet;
 $("funnel").onclick = openCategorySheet;
 $("scrim").onclick = closeSheet;
@@ -882,15 +1065,22 @@ $("saveBtn").onclick = () => {
   }
 
   const reason = $("reason").value.trim() || state.entryCategory;  // 留空用分类名
-  state.expenses.push({
-    id: Date.now() + Math.random(),
-    amountMinor: amount,
-    code,
-    rate: RATE[code],
-    reason,
-    cat: state.entryCategory,
-    at,
-  });
+
+  if (state.entryMode === "income") {
+    // 收入进**另一本账**
+    state.incomes.push({
+      id: Date.now() + Math.random(),
+      amountMinor: amount,
+      code, rate: RATE[code], reason, cat: state.entryCategory, at,
+    });
+  } else {
+    // 花销存正数，退款存**负数** —— 同一个账本，靠符号区分
+    state.expenses.push({
+      id: Date.now() + Math.random(),
+      amountMinor: state.entryMode === "refund" ? -amount : amount,
+      code, rate: RATE[code], reason, cat: state.entryCategory, at,
+    });
+  }
   save();
 
   $("amount").value = "";
@@ -900,7 +1090,8 @@ $("saveBtn").onclick = () => {
   renderEntry();
 
   const whenSuffix = v ? " · " + dayLabel(at) : "";
-  toast("已记下 " + fmt(amount, code) + whenSuffix);
+  const verb = state.entryMode === "income" ? "已记收入 " : state.entryMode === "refund" ? "已记退款 " : "已记下 ";
+  toast(verb + fmt(amount, code) + whenSuffix);
 };
 
 // 搜索
